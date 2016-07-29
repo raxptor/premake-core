@@ -6,21 +6,21 @@
 
 	local suite = test.declare("make_cs_response")
 	local make = premake.make
-	local project = premake.project
 
 
 --
 -- Setup
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		sln = test.createsolution()
+		premake.action.set("vs2010")
+		wks = test.createWorkspace()
 	end
 
 	local function prepare()
-		prj = test.getproject(sln, 1)
+		prj = test.getproject(wks, 1)
 	end
 
 
@@ -49,9 +49,14 @@ $(TARGET): $(SOURCES) $(EMBEDFILES) $(DEPENDS) $(RESPONSE)
 	end
 
 	function suite.listResponseRules()
-		files { "foo.cs", "bar.cs" }
+		files { "foo.cs", "bar.cs", "dir/foo.cs" }
 		prepare()
 		make.csResponseRules(prj)
+	end
+
+	function suite.listResponseRulesPosix()
+		_OS = "linux"
+		suite.listResponseRules()
 		test.capture [[
 $(RESPONSE): MyProject.make
 	@echo Generating response file
@@ -61,6 +66,24 @@ else
 	$(SILENT) if exist $(RESPONSE) del $(OBJDIR)\MyProject.rsp
 endif
 	@echo bar.cs >> $(RESPONSE)
+	@echo dir/foo.cs >> $(RESPONSE)
+	@echo foo.cs >> $(RESPONSE)
+		]]
+	end
+
+	function suite.listResponseRulesWindows()
+		_OS = "windows"
+		suite.listResponseRules()
+		test.capture [[
+$(RESPONSE): MyProject.make
+	@echo Generating response file
+ifeq (posix,$(SHELLTYPE))
+	$(SILENT) rm -f $(RESPONSE)
+else
+	$(SILENT) if exist $(RESPONSE) del $(OBJDIR)\MyProject.rsp
+endif
+	@echo bar.cs >> $(RESPONSE)
+	@echo dir\foo.cs >> $(RESPONSE)
 	@echo foo.cs >> $(RESPONSE)
 		]]
 	end

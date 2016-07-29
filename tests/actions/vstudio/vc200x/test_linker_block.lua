@@ -12,12 +12,12 @@
 -- Setup/teardown
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2008"
+		premake.action.set("vs2008")
 		premake.escaper(premake.vstudio.vs2005.esc)
-		sln, prj = test.createsolution()
+		wks, prj = test.createWorkspace()
 	end
 
 	local function prepare()
@@ -82,7 +82,7 @@
 	LinkIncremental="2"
 	GenerateDebugInformation="false"
 	SubSystem="2"
-	ImportLibrary="MyProject.lib"
+	ImportLibrary="bin\Debug\MyProject.lib"
 	TargetMachine="1"
 />
 		]]
@@ -110,7 +110,7 @@
 --
 
 	function suite.onSymbolsFlag()
-		flags "Symbols"
+		symbols "On"
 		prepare()
 		test.capture [[
 <Tool
@@ -127,7 +127,7 @@
 --
 
 	function suite.onC7DebugFormat()
-		flags "Symbols"
+		symbols "On"
 		debugformat "C7"
 		prepare()
 		test.capture [[
@@ -245,7 +245,7 @@
 <Tool
 	Name="VCLinkerTool"
 	LinkLibraryDependencies="false"
-	AdditionalDependencies="MyProject2.lib"
+	AdditionalDependencies="bin\Debug\MyProject2.lib"
 		]]
 	end
 

@@ -1,7 +1,7 @@
 --
 -- base/oven.lua
 --
--- Process the solutions, projects, and configurations that were specified
+-- Process the workspaces, projects, and configurations that were specified
 -- by the project script, and make them suitable for use by the exporters
 -- and actions. Fills in computed values (e.g. object directories) and
 -- optimizes the layout of the data for faster fetches.
@@ -39,28 +39,27 @@
 --
 -- This call replaces the existing the container objects with their
 -- processed replacements. If you are using the provided container APIs
--- (p.global.*, p.solution.*, etc.) this will be transparent.
+-- (p.global.*, p.workspace.*, etc.) this will be transparent.
 ---
 
 	function oven.bake()
-		p.container.bakeChildren(p.api.rootContainer())
+		-- reset the root _isBaked state.
+		-- this really only affects the unit-tests, since that is the only place
+		-- where multiple bakes per 'exe run' happen.
+		local root = p.api.rootContainer()
+		root._isBaked = false;
+
+		p.container.bake(root)
 	end
 
-	function oven.bakeSolution(sln)
-		return p.container.bake(sln)
+	function oven.bakeWorkspace(wks)
+		return p.container.bake(wks)
 	end
 
+	p.alias(oven, "bakeWorkspace", "bakeSolution")
 
 
----
--- Bakes a specific solution object.
----
-
-	function p.solution.bake(self)
-		-- Add filtering terms to the context and then compile the results. These
-		-- terms describe the "operating environment"; only results contained by
-		-- configuration blocks which match these terms will be returned.
-
+	local function addCommonContextFilters(self)
 		context.addFilter(self, "_ACTION", _ACTION)
 		context.addFilter(self, "action", _ACTION)
 
@@ -68,7 +67,6 @@
 		context.addFilter(self, "system", self.system)
 
 		-- Add command line options to the filtering options
-
 		local options = {}
 		for key, value in pairs(_OPTIONS) do
 			local term = key
@@ -79,48 +77,65 @@
 		end
 		context.addFilter(self, "_OPTIONS", options)
 		context.addFilter(self, "options", options)
+	end
+
+---
+-- Bakes a specific workspace object.
+---
+
+	function p.workspace.bake(self)
+		-- Add filtering terms to the context and then compile the results. These
+		-- terms describe the "operating environment"; only results contained by
+		-- configuration blocks which match these terms will be returned.
+
+		addCommonContextFilters(self)
 
 		-- Set up my token expansion environment
 
 		self.environ = {
+			wks = self,
 			sln = self,
 		}
 
 		context.compile(self)
 
-		-- Specify the solution's file system location; when path tokens are
-		-- expanded in solution values, they will be made relative to this.
+		-- Specify the workspaces's file system location; when path tokens are
+		-- expanded in workspace values, they will be made relative to this.
 
 		self.location = self.location or self.basedir
 		context.basedir(self, self.location)
 
-		-- Now bake down all of the projects contained in the solution, and
+		-- Now bake down all of the projects contained in the workspace, and
 		-- store that for future reference
 
 		p.container.bakeChildren(self)
 
 		-- I now have enough information to assign unique object directories
-		-- to each project configuration in the solution.
+		-- to each project configuration in the workspace.
 
 		oven.bakeObjDirs(self)
 
 		-- Build a master list of configuration/platform pairs from all of the
-		-- projects contained by the solution; I will need this when generating
-		-- solution files in order to provide a map from solution configurations
+		-- projects contained by the workspace; I will need this when generating
+		-- workspace files in order to provide a map from workspace configurations
 		-- to project configurations.
 
 		self.configs = oven.bakeConfigs(self)
 	end
 
 
-
 	function p.project.bake(self)
-		local sln = self.solution
+		verbosef('    Baking %s...', self.name)
+
+		self.solution = self.workspace
+		self.global = self.workspace.global
+
+		local wks = self.workspace
 
 		-- Add filtering terms to the context to make it as specific as I can.
-		-- Start with the same filtering that was applied at the solution level.
+		-- Start with the same filtering that was applied at the workspace level.
 
-		context.copyFilters(self, sln)
+		context.copyFilters(self, wks)
 
 		-- Now filter on the current system and architecture, allowing the
 		-- values that might already in the context to override my defaults.
@@ -141,7 +156,8 @@
 		-- Populate the token expansion environment
 
 		self.environ = {
-			sln = sln,
+			wks = wks,
+			sln = wks,
 			prj = self,
 		}
 
@@ -155,11 +171,11 @@
 		-- location. Any path tokens which are expanded in non-path fields
 		-- are made relative to this, ensuring a portable generated project.
 
-		self.location = self.location or sln.location or self.basedir
+		self.location = self.location or wks.location or self.basedir
 		context.basedir(self, self.location)
 
 		-- This bit could use some work: create a canonical set of configurations
-		-- for the project, along with a mapping from the solution's configurations.
+		-- for the project, along with a mapping from the workspace's configurations.
 		-- This works, but it could probably be simplified.
 
 		local cfgs = table.fold(self.configurations or {}, self.platforms or {})
@@ -179,7 +195,7 @@
 		for _, pairing in ipairs(self._cfglist) do
 			local buildcfg = pairing[1]
 			local platform = pairing[2]
-			local cfg = oven.bakeConfig(self, buildcfg, platform)
+			local cfg = oven.bakeConfig(wks, self, buildcfg, platform)
 
 			if premake.action.supportsconfig(premake.action.current(), cfg) then
 				self.configs[(buildcfg or "*") .. (platform or "")] = cfg
@@ -204,18 +220,41 @@
 	end
 
 
+	function p.rule.bake(self)
+		-- Add filtering terms to the context and then compile the results. These
+		-- terms describe the "operating environment"; only results contained by
+		-- configuration blocks which match these terms will be returned.
 
-	function p.rule.bake(r)
-		table.sort(r.propertydefinition, function (a, b)
+		addCommonContextFilters(self)
+
+		-- Populate the token expansion environment
+
+		self.environ = {
+			rule = self,
+		}
+
+		-- Go ahead and distill all of that down now; this is my new rule object
+
+		context.compile(self)
+
+		-- sort the propertydefinition table.
+		table.sort(self.propertydefinition, function (a, b)
 			return a.name < b.name
 		end)
+
+		-- Set the context's base directory to the rule's file system
+		-- location. Any path tokens which are expanded in non-path fields
+		-- are made relative to this, ensuring a portable generated rule.
+
+		self.location = self.location or self.basedir
+		context.basedir(self, self.location)
 	end
 
 
 
 --
 -- Assigns a unique objects directory to every configuration of every project
--- in the solution, taking any objdir settings into account, to ensure builds
+-- in the workspace, taking any objdir settings into account, to ensure builds
 -- from different configurations won't step on each others' object files.
 -- The path is built from these choices, in order:
 --
@@ -224,11 +263,11 @@
 --   [3] -> [2] + the build configuration name
 --   [4] -> [3] + the project name
 --
--- @param sln
---    The solution to process. The directories are modified inline.
+-- @param wks
+--    The workspace to process. The directories are modified inline.
 --
 
-	function oven.bakeObjDirs(sln)
+	function oven.bakeObjDirs(wks)
 		-- function to compute the four options for a specific configuration
 		local function getobjdirs(cfg)
 			-- the "!" prefix indicates the directory is not to be touched
@@ -258,12 +297,12 @@
 			return dirs
 		end
 
-		-- walk all of the configs in the solution, and count the number of
+		-- walk all of the configs in the workspace, and count the number of
 		-- times each obj dir gets used
 		local counts = {}
 		local configs = {}
 
-		for prj in p.solution.eachproject(sln) do
+		for prj in p.workspace.eachproject(wks) do
 			for cfg in p.project.eachconfig(prj) do
 				-- get the dirs for this config, and associate them together,
 				-- and increment a counter for each one discovered
@@ -290,34 +329,21 @@
 
 
 --
--- Create a list of solution-level build configuration/platform pairs.
+-- Create a list of workspace-level build configuration/platform pairs.
 --
 
-	function oven.bakeConfigs(sln)
-		local buildcfgs = sln.configurations or {}
-		local platforms = sln.platforms or {}
+	function oven.bakeConfigs(wks)
+		local buildcfgs = wks.configurations or {}
+		local platforms = wks.platforms or {}
 
 		local configs = {}
-		for _, buildcfg in ipairs(buildcfgs) do
-			if #platforms > 0 then
-				for _, platform in ipairs(platforms) do
-					local cfg = { ["buildcfg"] = buildcfg, ["platform"] = platform }
-					if premake.action.supportsconfig(premake.action.current(), cfg) then
-						table.insert(configs, cfg)
-					end
-				end
-			else
-				local cfg = { ["buildcfg"] = buildcfg }
-				if premake.action.supportsconfig(premake.action.current(), cfg) then
-					table.insert(configs, cfg)
-				end
-			end
-		end
 
-		-- fill in any calculated values
-		for _, cfg in ipairs(configs) do
-			cfg.solution = sln
-			oven.finishConfig(cfg)
+		local pairings = table.fold(buildcfgs, platforms)
+		for _, pairing in ipairs(pairings) do
+			local cfg = oven.bakeConfig(wks, nil, pairing[1], pairing[2])
+			if premake.action.supportsconfig(premake.action.current(), cfg) then
+				table.insert(configs, cfg)
+			end
 		end
 
 		return configs
@@ -364,13 +390,8 @@
 			if not field then
 				ctx[key] = rawget(ctx, key)
 			else
-				local value = p.configset.fetch(cset, field, terms)
+				local value = p.configset.fetch(cset, field, terms, ctx)
 				if value then
-					-- do I need to expand tokens?
-					if field and field.tokens then
-						value = p.detoken.expand(value, ctx.environ, field, ctx._basedir)
-					end
-
 					ctx[key] = value
 				end
 			end
@@ -380,7 +401,7 @@
 
 --
 -- Builds a list of build configuration/platform pairs for a project,
--- along with a mapping between the solution and project configurations.
+-- along with a mapping between the workspace and project configurations.
 --
 -- @param ctx
 --    The project context information.
@@ -423,8 +444,10 @@
 -- Flattens out the build settings for a particular build configuration and
 -- platform pairing, and returns the result.
 --
+-- @param wks
+--    The workpace which contains the configuration data.
 -- @param prj
---    The project which contains the configuration data.
+--    The project which contains the configuration data. Can be nil.
 -- @param buildcfg
 --    The target build configuration, a value from configurations().
 -- @param platform
@@ -434,7 +457,7 @@
 --    this configuration
 ---
 
-	function oven.bakeConfig(prj, buildcfg, platform, extraFilters)
+	function oven.bakeConfig(wks, prj, buildcfg, platform, extraFilters)
 
 		-- Set the default system and architecture values; if the platform's
 		-- name matches a known system or architecture, use that as the default.
@@ -443,10 +466,12 @@
 
 		local system = p.action.current().os or os.get()
 		local architecture = nil
+		local toolset = nil
 
 		if platform then
 			system = p.api.checkValue(p.fields.system, platform) or system
 			architecture = p.api.checkValue(p.fields.architecture, platform) or architecture
+			toolset = p.api.checkValue(p.fields.toolset, platform) or toolset
 		end
 
 		-- Wrap the projects's configuration set (which contains all of the information
@@ -455,14 +480,17 @@
 		-- values are used when expanding tokens.
 
 		local environ = {
-			sln = prj.solution,
+			wks = wks,
+			sln = wks,
 			prj = prj,
 		}
 
-		local ctx = context.new(prj, environ)
+		local ctx = context.new(prj or wks, environ)
 
 		ctx.project = prj
-		ctx.solution = prj.solution
+		ctx.workspace = wks
+		ctx.solution = wks
+		ctx.global = wks.global
 		ctx.buildcfg = buildcfg
 		ctx.platform = platform
 		ctx.action = _ACTION
@@ -475,14 +503,16 @@
 		-- Add filtering terms to the context and then compile the results. These
 		-- terms describe the "operating environment"; only results contained by
 		-- configuration blocks which match these terms will be returned. Start
-		-- by copying over the top-level environment from the solution. Don't
+		-- by copying over the top-level environment from the workspace. Don't
 		-- copy the project terms though, so configurations can override those.
 
-		context.copyFilters(ctx, prj.solution)
+		context.copyFilters(ctx, wks)
 
 		context.addFilter(ctx, "configurations", buildcfg)
 		context.addFilter(ctx, "platforms", platform)
-		context.addFilter(ctx, "language", prj.language)
+		if prj then
+			context.addFilter(ctx, "language", prj.language)
+		end
 
 		-- allow the project script to override the default system
 		ctx.system = ctx.system or system
@@ -491,6 +521,10 @@
 		-- allow the project script to override the default architecture
 		ctx.architecture = ctx.architecture or architecture
 		context.addFilter(ctx, "architecture", ctx.architecture)
+
+		-- allow the project script to override the default toolset
+		ctx.toolset = ctx.toolset or toolset
+		context.addFilter(ctx, "toolset", ctx.toolset)
 
 		-- if a kind is set, allow that to influence the configuration
 		context.addFilter(ctx, "kind", ctx.kind)
@@ -504,7 +538,7 @@
 
 		context.compile(ctx)
 
-		ctx.location = ctx.location or prj.location
+		ctx.location = ctx.location or prj and prj.location
 		context.basedir(ctx, ctx.location)
 
 		-- Fill in a few calculated for the configuration, including the long
@@ -614,7 +648,7 @@
 
 
 --
--- Finish the baking process for a solution or project level configurations.
+-- Finish the baking process for a workspace or project level configurations.
 -- Doesn't bake per se, just fills in some calculated values.
 --
 

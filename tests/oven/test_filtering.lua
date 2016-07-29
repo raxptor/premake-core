@@ -5,22 +5,22 @@
 --
 
 	local suite = test.declare("oven_filtering")
-	local oven = premake.oven
-	local solution = premake.solution
 
-	local sln, prj
 
 --
 -- Setup
 --
 
+	local wks, prj, cfg
+
 	function suite.setup()
-		sln = test.createsolution()
+		wks = test.createWorkspace()
 	end
 
 	local function prepare()
-		sln = oven.bakeSolution(sln)
-		prj = solution.getproject(sln, 1)
+		wks = test.getWorkspace(wks)
+		prj = test.getproject(wks, 1)
+        cfg = test.getconfig(prj, "Debug")
 	end
 
 
@@ -29,7 +29,7 @@
 --
 
 	function suite.onAction()
-		_ACTION = "vs2012"
+		premake.action.set("vs2012")
 		filter { "action:vs2012" }
 		defines { "USE_VS2012" }
 		prepare()
@@ -37,7 +37,7 @@
 	end
 
 	function suite.onActionMismatch()
-		_ACTION = "vs2010"
+		premake.action.set("vs2010")
 		filter { "action:vs2012" }
 		defines { "USE_VS2012" }
 		prepare()
@@ -85,4 +85,24 @@
 		defines { "USE_OPENGL" }
 		prepare()
 		test.isequal({ }, prj.defines)
+	end
+
+--
+-- Test filtering by the selected toolset.
+--
+
+	function suite.onFilterToolset()
+		toolset "msc"
+		filter { "toolset:msc" }
+		defines { "USE_MSC" }
+		prepare()
+		test.isequal({ "USE_MSC" }, cfg.defines)
+	end
+
+	function suite.onFilterToolsetMismatch()
+		toolset "clang"
+		filter { "toolset:msc" }
+		defines { "USE_MSC" }
+		prepare()
+		test.isequal({}, cfg.defines)
 	end

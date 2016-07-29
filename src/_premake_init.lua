@@ -24,14 +24,14 @@
 		kind = "string",
 		allowed = {
 			"universal",
-			"x86",
-			"x86_64",
+			p.X86,
+			p.X86_64,
 		},
 		aliases = {
-			i386 = "x86",
-			amd64 = "x86_64",
-			x32 = "x86",	-- these should be DEPRECATED
-			x64 = "x86_64",
+			i386  = p.X86,
+			amd64 = p.X86_64,
+			x32   = p.X86,	-- these should be DEPRECATED
+			x64   = p.X86_64,
 		},
 	}
 
@@ -75,6 +75,12 @@
 		kind = "list:string",
 		tokens = true,
 		pathVars = true,
+	}
+
+	api.register {
+		name = "buildcustomizations",
+		scope = "project",
+		kind = "list:string",
 	}
 
 	api.register {
@@ -130,6 +136,17 @@
 		scope = "config",
 		kind = "table",
 		tokens = true,
+	}
+
+	api.register {
+		name = "characterset",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Default",
+			"MBCS",
+			"Unicode",
+		}
 	}
 
 	api.register {
@@ -251,6 +268,17 @@
 	}
 
 	api.register {
+		name = "debuggertype",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Mixed",
+			"NativeOnly",
+			"ManagedOnly",
+		}
+	}
+
+	api.register {
 		name = "debugpathmap",
 		scope = "config",
 		kind = "list:keyed:path",
@@ -343,7 +371,24 @@
 	api.register {
 		name = "editandcontinue",
 		scope = "config",
-		kind = "boolean",
+		kind = "string",
+		allowed = {
+			"Default",
+			"On",
+			"Off",
+		},
+	}
+
+	api.register {
+		name = "exceptionhandling",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Default",
+			"On",
+			"Off",
+			"SEH"
+		},
 	}
 
 	api.register {
@@ -362,6 +407,12 @@
 			"Little",
 			"Big",
 		},
+	}
+
+	api.register {
+		name = "entrypoint",
+		scope = "config",
+		kind = "string",
 	}
 
 	api.register {
@@ -416,7 +467,7 @@
 			"No64BitChecks",
 			"NoCopyLocal",
 			"NoEditAndContinue",   -- DEPRECATED
-			"NoExceptions",
+			"NoExceptions",        -- DEPRECATED
 			"NoFramePointer",
 			"NoImplicitLink",
 			"NoImportLib",
@@ -426,7 +477,7 @@
 			"NoNativeWChar",       -- DEPRECATED
 			"NoPCH",
 			"NoRuntimeChecks",
-			"NoRTTI",
+			"NoRTTI",              -- DEPRECATED
 			"NoBufferSecurityCheck",
 			"NoWarnings",          -- DEPRECATED
 			"OmitDefaultLibrary",
@@ -435,12 +486,12 @@
 			"OptimizeSpeed",       -- DEPRECATED
 			"RelativeLinks",
 			"ReleaseRuntime",      -- DEPRECATED
-			"SEH",
+			"SEH",                 -- DEPRECATED
 			"ShadowedVariables",
 			"StaticRuntime",
-			"Symbols",
+			"Symbols",             -- DEPRECATED
 			"UndefinedIdentifiers",
-			"Unicode",
+			"Unicode",             -- DEPRECATED
 			"Unsafe",              -- DEPRECATED
 			"WinMain",
 			"WPF",
@@ -463,6 +514,18 @@
 			"Default",
 			"Fast",
 			"Strict",
+		}
+	}
+
+	api.register {
+		name = "inlining",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Default",
+			"Disabled",
+			"Explicit",
+			"Auto"
 		}
 	}
 
@@ -503,7 +566,7 @@
 	}
 
 	api.register {
-		name = "framework",
+		name = "dotnetframework",
 		scope = "config",
 		kind = "string",
 	}
@@ -512,6 +575,13 @@
 		name = "gccprefix",
 		scope = "config",
 		kind = "string",
+		tokens = true,
+	}
+
+	api.register {
+		name = "ignoredefaultlibraries",
+		scope = "config",
+		kind = "list:mixed",
 		tokens = true,
 	}
 
@@ -619,6 +689,13 @@
 	}
 
 	api.register {
+		name = "frameworkdirs",
+		scope = "config",
+		kind = "list:directory",
+		tokens = true,
+	}
+
+	api.register {
 		name = "linkoptions",
 		scope = "config",
 		kind = "list:string",
@@ -630,6 +707,16 @@
 		scope = "config",
 		kind = "list:mixed",
 		tokens = true,
+	}
+
+	api.register {
+		name = "linkgroups",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Off",
+			"On",
+		}
 	}
 
 	api.register {
@@ -669,6 +756,13 @@
 			"On",
 			"Off",
 		}
+	}
+
+	api.register {
+		name = "nuget",
+		scope = "project",
+		kind = "list:string",
+		tokens = true,
 	}
 
 	api.register {
@@ -816,6 +910,17 @@
 	}
 
 	api.register {
+		name = "rtti",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Default",
+			"On",
+			"Off",
+		},
+	}
+
+	api.register {
 		name = "rules",
 		scope = "project",
 		kind = "list:string",
@@ -823,7 +928,7 @@
 
 	api.register {
 		name = "startproject",
-		scope = "solution",
+		scope = "workspace",
 		kind = "string",
 		tokens = true,
 	}
@@ -838,6 +943,24 @@
 			"Level2",
 			"Level3",
 		}
+	}
+
+	api.register {
+		name = "symbols",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Default",
+			"On",
+			"Off",
+		},
+	}
+
+	api.register {
+		name = "symbolspath",
+		scope = "config",
+		kind = "path",
+		tokens = true,
 	}
 
 	api.register {
@@ -869,6 +992,12 @@
 			"windows",
 			"xbox360",
 		},
+	}
+
+	api.register {
+		name = "systemversion",
+		scope = "project",
+		kind = "string",
 	}
 
 	api.register {
@@ -920,6 +1049,12 @@
 	}
 
 	api.register {
+		name = "customtoolnamespace",
+		scope = "config",
+		kind = "string",
+	}
+
+	api.register {
 		name = "undefines",
 		scope = "config",
 		kind = "list:string",
@@ -965,6 +1100,9 @@
 			"AVX2",
 			"SSE",
 			"SSE2",
+			"SSE3",
+			"SSSE3",
+			"SSE4.1",
 		}
 	}
 
@@ -987,6 +1125,17 @@
 		}
 	}
 
+	api.register {
+		name = "largeaddressaware",
+		scope = "config",
+		kind = "boolean",
+	}
+
+	api.register {
+		name = "editorintegration",
+		scope = "workspace",
+		kind = "boolean",
+	}
 
 -----------------------------------------------------------------------------
 --
@@ -1000,6 +1149,7 @@
 	api.alias("buildoutputs", "buildOutputs")
 	api.alias("cleanextensions", "cleanExtensions")
 	api.alias("configfile", "configFile")
+	api.alias("dotnetframework", "framework")
 	api.alias("editandcontinue", "editAndContinue")
 	api.alias("fileextension", "fileExtension")
 	api.alias("propertydefinition", "propertyDefinition")
@@ -1118,12 +1268,57 @@
 	end)
 
 
-	api.deprecateValue("flags", "Unsafe", nil,
+	api.deprecateValue("flags", "NoExceptions", 'Use `exceptionhandling "Off"` instead',
+	function(value)
+		exceptionhandling "Off"
+	end,
+	function(value)
+		exceptionhandling "On"
+	end)
+
+
+	api.deprecateValue("flags", "NoRTTI", 'Use `rtti "Off"` instead',
+	function(value)
+		rtti "Off"
+	end,
+	function(value)
+		rtti "On"
+	end)
+
+	api.deprecateValue("flags", "SEH", 'Use `exceptionhandling "SEH"` instead',
+	function(value)
+		exceptionhandling "SEH"
+	end,
+	function(value)
+		exceptionhandling "Default"
+	end)
+
+	api.deprecateValue("flags", "Unsafe", 'Use `clr "Unsafe"` instead',
 	function(value)
 		clr "Unsafe"
 	end,
 	function(value)
 		clr "On"
+	end)
+
+	-- 18 Dec 2015
+
+	api.deprecateValue("flags", "Unicode", 'Use `characterset "Unicode"` instead',
+	function(value)
+		characterset "Unicode"
+	end,
+	function(value)
+		characterset "Default"
+	end)
+
+	-- 21 June 2016
+
+	api.deprecateValue("flags", "Symbols", 'Use `symbols "On"` instead',
+	function(value)
+		symbols "On"
+	end,
+	function(value)
+		symbols "Default"
 	end)
 
 
@@ -1233,8 +1428,12 @@
 --
 -----------------------------------------------------------------------------
 
+	characterset "Default"
 	clr "Off"
-	editandcontinue "On"
+	editorintegration "Off"
+	exceptionhandling "Default"
+	rtti "Default"
+	symbols "Default"
 
 	-- Setting a default language makes some validation easier later
 

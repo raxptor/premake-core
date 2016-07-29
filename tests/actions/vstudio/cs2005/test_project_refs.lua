@@ -4,8 +4,7 @@
 -- Copyright (c) 2012 Jason Perkins and the Premake project
 --
 
-	T.vstudio_cs2005_project_refs = {}
-	local suite = T.vstudio_cs2005_project_refs
+	local suite = test.declare("vstudio_cs2005_project_refs")
 	local cs2005 = premake.vstudio.cs2005
 
 
@@ -13,17 +12,17 @@
 -- Setup and teardown
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2008"
-		sln = test.createsolution()
+		premake.action.set("vs2008")
+		wks = test.createWorkspace()
 		uuid "00112233-4455-6677-8888-99AABBCCDDEE"
-		test.createproject(sln)
+		test.createproject(wks)
 	end
 
 	local function prepare(platform)
-		prj = premake.solution.getproject(sln, 2)
+		prj = test.getproject(wks, 2)
 		cs2005.projectReferences(prj)
 	end
 

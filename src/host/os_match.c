@@ -15,14 +15,14 @@ typedef struct struct_MatchInfo
 {
 	HANDLE handle;
 	int    is_first;
-	WIN32_FIND_DATA entry;
+	WIN32_FIND_DATAA entry;
 } MatchInfo;
 
 int os_matchstart(lua_State* L)
 {
 	const char* mask = luaL_checkstring(L, 1);
 	MatchInfo* m = (MatchInfo*)malloc(sizeof(MatchInfo));
-	m->handle = FindFirstFile(mask, &m->entry);
+	m->handle = FindFirstFileA(mask, &m->entry);
 	m->is_first = 1;
 	lua_pushlightuserdata(L, m);
 	return 1;
@@ -60,15 +60,19 @@ int os_matchnext(lua_State* L)
 
 	while (m)  /* loop forever */
 	{
-		if (!m->is_first)
+		if (m->is_first)
+			m->is_first = 0;
+		else
 		{
-			if (!FindNextFile(m->handle, &m->entry))
+			if (!FindNextFileA(m->handle, &m->entry))
 				return 0;
 		}
 
-		m->is_first = 0;
-		lua_pushboolean(L, 1);
-		return 1;
+		if (strcmp(m->entry.cFileName, ".") != 0 && strcmp(m->entry.cFileName, "..") != 0)
+		{
+			lua_pushboolean(L, 1);
+			return 1;
+		}
 	}
 
 	return 0;
@@ -137,14 +141,26 @@ int os_matchname(lua_State* L)
 
 int os_matchisfile(lua_State* L)
 {
-	const char* fname;
-
 	MatchInfo* m = (MatchInfo*)lua_touserdata(L, 1);
-	lua_pushfstring(L, "%s/%s", m->path, m->entry->d_name);
-	fname = lua_tostring(L, -1);
-	lua_pop(L, 1);
+#if defined(_DIRENT_HAVE_D_TYPE)
+	if (m->entry->d_type == DT_DIR)
+	{
+		lua_pushboolean(L, 0);
+	}
+	else if (m->entry->d_type == DT_REG)
+	{
+		lua_pushboolean(L, 1);
+	}
+	else
+#endif
+	{
+		const char* fname;
+		lua_pushfstring(L, "%s/%s", m->path, m->entry->d_name);
+		fname = lua_tostring(L, -1);
+		lua_pop(L, 1);
 
-	lua_pushboolean(L, do_isfile(fname));
+		lua_pushboolean(L, do_isfile(fname));
+	}
 	return 1;
 }
 
@@ -159,10 +175,13 @@ int os_matchnext(lua_State* L)
 	while (m->entry != NULL)
 	{
 		const char* name = m->entry->d_name;
-		if (fnmatch(m->mask, name, 0) == 0)
+		if (strcmp(name, ".") != 0 && strcmp(name, "..") != 0)
 		{
-			lua_pushboolean(L, 1);
-			return 1;
+			if (fnmatch(m->mask, name, 0) == 0)
+			{
+				lua_pushboolean(L, 1);
+				return 1;
+			}
 		}
 		m->entry = readdir(m->handle);
 	}

@@ -14,9 +14,10 @@
 -- Setup and teardown
 --
 
-	local sln, prj
+	local wks, prj
 	function suite.setup()
-		sln, prj = test.createsolution()
+		os.chdir(_TESTS_DIR)
+		wks, prj = test.createWorkspace()
 	end
 
 	local function prepareVars()

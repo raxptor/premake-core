@@ -33,6 +33,19 @@
 
 
 --
+-- Make a shallow copy of a table
+--
+
+	function table.shallowcopy(object)
+		local copy = {}
+		for k, v in pairs(object) do
+			copy[k] = v
+		end
+		return copy
+	end
+
+
+--
 -- Make a complete copy of a table, including any child tables it contains.
 --
 
@@ -53,6 +66,7 @@
 				clone[key] = copy(value)
 			end
 
+			setmetatable(clone, getmetatable(object))
 			return clone
 		end
 
@@ -73,6 +87,21 @@
 		return result
 	end
 
+
+--
+-- Enumerates an array of objects and returns a new table containing
+-- only the values satisfying the given predicate.
+--
+
+	function table.filter(arr, fn)
+		local result = { }
+		table.foreachi(arr, function(val)
+			if fn(val) then
+				table.insert(result, val)
+			end
+		end)
+		return result
+	end
 
 
 --
@@ -201,7 +230,7 @@
 
 
 --
--- Inserts a value of array of values into a table. If the value is
+-- Inserts a value or array of values into a table. If the value is
 -- itself a table, its contents are enumerated and added instead. So
 -- these inputs give these outputs:
 --
@@ -220,6 +249,55 @@
 		else
 			table.insert(tbl, values)
 		end
+		return tbl
+	end
+
+
+--
+-- Inserts a value into a table as both a list item and a key-value pair.
+-- Useful for set operations.
+--
+
+	function table.insertkeyed(tbl, pos, value)
+		if value == nil then
+			value = pos
+			pos = #tbl + 1
+		end
+		table.insert(tbl, pos, value)
+		tbl[value] = value
+	end
+
+
+--
+-- Inserts a value into a table in sorted order. Assumes that the
+-- table is already sorted according to the sort function. If fn is
+-- nil, the table is sorted according to the < operator.
+--
+
+	function table.insertsorted(tbl, value, fn)
+		if value == nil then
+			return
+		else
+			fn = fn or function(a, b) return a < b end
+
+			local minindex = 1
+			local maxindex = #tbl + 1
+			while minindex < maxindex do
+				local index = minindex + math.floor((maxindex - minindex) / 2)
+				local test = tbl[index]
+				if fn(value, test) then
+					maxindex = index
+				else
+					minindex = index + 1
+					if not fn(test, value) then
+						break
+					end
+				end
+			end
+
+			table.insert(tbl, minindex, value)
+		end
+
 		return tbl
 	end
 
@@ -361,8 +439,8 @@
 			if not v then
 				return formatting .. '(nil)'
 			elseif type(v) == "table" then
-				if recurse then
-					return formatting .. '\n' .. table.tostring(v, recurse, i+1)
+				if recurse and recurse > 0 then
+					return formatting .. '\n' .. table.tostring(v, recurse-1, i+1)
 				else
 					return formatting .. "<table>"
 				end
@@ -383,6 +461,15 @@
 
 		if type(tab) == "table" then
 			local first = true
+
+			-- add the meta table.
+			local mt = getmetatable(tab)
+			if mt then
+				res = res .. format_value('__mt', mt, indent)
+				first = false
+			end
+
+			-- add all values.
 			for k, v in pairs(tab) do
 				if not first then
 					res = res .. '\n'
@@ -396,6 +483,23 @@
 		end
 
 		return res
+	end
+
+
+--
+-- Returns a copy of a list with all duplicate elements removed.
+--
+	function table.unique(tab)
+		local elems = { }
+		local result = { }
+		table.foreachi(tab, function(elem)
+			if not elems[elem] then
+				table.insert(result, elem)
+				elems[elem] = true
+			end
+		end)
+
+		return result
 	end
 
 --

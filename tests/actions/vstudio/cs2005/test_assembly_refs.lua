@@ -1,11 +1,11 @@
 --
 -- tests/actions/vstudio/cs2005/test_assembly_refs.lua
 -- Test the assembly linking block of a Visual Studio 2005+ C# project.
--- Copyright (c) 2012 Jason Perkins and the Premake project
+-- Copyright (c) 2012-2015 Jason Perkins and the Premake project
 --
 
-	T.vstudio_cs2005_assembly_refs = {}
-	local suite = T.vstudio_cs2005_assembly_refs
+	local suite = test.declare("vstudio_cs2005_assembly_refs")
+
 	local cs2005 = premake.vstudio.cs2005
 
 
@@ -13,17 +13,17 @@
 -- Setup and teardown
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2008"
-		sln = test.createsolution()
+		premake.action.set("vs2010")
+		wks = test.createWorkspace()
 		language "C#"
 	end
 
 	local function prepare(platform)
-		prj = premake.solution.getproject(sln, 1)
-		cs2005.assemblyReferences(prj)
+		prj = test.getproject(wks, 1)
+		cs2005.references(prj)
 	end
 
 
@@ -142,3 +142,50 @@
 		]]
 	end
 
+
+--
+-- NuGet packages should get references.
+--
+
+	function suite.nuGetPackages()
+		dotnetframework "4.5"
+		nuget { "Newtonsoft.Json:7.0.1" }
+		prepare()
+		test.capture [[
+	<ItemGroup>
+		<Reference Include="Newtonsoft.Json">
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net10\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net10\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net11\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net11\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net20\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net20\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net30\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net30\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net35\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net35\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net40\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net40\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net45\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+			<Private>True</Private>
+		</Reference>
+	</ItemGroup>
+		]]
+	end
+
+
+--
+-- NuGet packages shouldn't get HintPaths for .NET Framework
+-- versions that the project doesn't support.
+--
+
+	function suite.nuGetPackages_olderNET()
+		dotnetframework "3.0"
+		nuget { "Newtonsoft.Json:7.0.1" }
+		prepare()
+		test.capture [[
+	<ItemGroup>
+		<Reference Include="Newtonsoft.Json">
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net10\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net10\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net11\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net11\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net20\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net20\Newtonsoft.Json.dll</HintPath>
+			<HintPath Condition="Exists('packages\Newtonsoft.Json.7.0.1\lib\net30\Newtonsoft.Json.dll')">packages\Newtonsoft.Json.7.0.1\lib\net30\Newtonsoft.Json.dll</HintPath>
+			<Private>True</Private>
+		</Reference>
+	</ItemGroup>
+		]]
+	end

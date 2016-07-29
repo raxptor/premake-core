@@ -7,10 +7,12 @@
 ---
 
 
-	premake.tools.msc = {}
-	local msc = premake.tools.msc
-	local project = premake.project
-	local config = premake.config
+	local p = premake
+
+	p.tools.msc = {}
+	local msc = p.tools.msc
+	local project = p.project
+	local config = p.config
 
 
 --
@@ -38,8 +40,6 @@
 			MultiProcessorCompile = "/MP",
 			NoFramePointer = "/Oy",
 			NoMinimalRebuild = "/Gm-",
-			SEH = "/EHa",
-			Symbols = "/Z7",
 			OmitDefaultLibrary = "/Zl",
 		},
 		floatingpoint = {
@@ -65,10 +65,16 @@
 			AVX2 = "/arch:AVX2",
 			SSE = "/arch:SSE",
 			SSE2 = "/arch:SSE2",
+			SSE3 = "/arch:SSE2",
+			SSSE3 = "/arch:SSE2",
+			["SSE4.1"] = "/arch:SSE2",
 		},
 		warnings = {
 			Extra = "/W4",
 			Off = "/W0",
+		},
+		symbols = {
+			On = "/Z7"
 		}
 	}
 
@@ -104,18 +110,18 @@
 --
 
 	msc.cxxflags = {
-		flags = {
-			NoRTTI = "/GR-",
+		exceptionhandling = {
+			Default = "/EHsc",
+			On = "/EHsc",
+			SEH = "/EHa",
+		},
+		rtti = {
+			Off = "/GR-"
 		}
 	}
 
 	function msc.getcxxflags(cfg)
 		local flags = config.mapFlags(cfg, msc.cxxflags)
-
-		if not cfg.flags.SEH and not cfg.flags.NoExceptions then
-			table.insert(flags, "/EHsc")
-		end
-
 		return flags
 	end
 
@@ -124,8 +130,27 @@
 -- Decorate defines for the MSVC command line.
 --
 
-	function msc.getdefines(defines)
-		local result = {}
+	msc.defines = {
+		characterset = {
+			Default = { '/D"_UNICODE"', '/D"UNICODE"' },
+			MBCS = '/D"_MBCS"',
+			Unicode = { '/D"_UNICODE"', '/D"UNICODE"' },
+		}
+	}
+
+	function msc.getdefines(defines, cfg)
+		local result
+
+		-- HACK: I need the cfg to tell what the character set defines should be. But
+		-- there's lots of legacy code using the old getdefines(defines) signature.
+		-- For now, detect one or two arguments and apply the right behavior; will fix
+		-- it properly when the I roll out the adapter overhaul
+		if cfg and defines then
+			result = config.mapFlags(cfg, msc.defines)
+		else
+			result = {}
+		end
+
 		for _, define in ipairs(defines) do
 			table.insert(result, '/D"' .. define .. '"')
 		end
@@ -190,10 +215,12 @@
 			NoIncrementalLink = "/INCREMENTAL:NO",
 			NoManifest = "/MANIFEST:NO",
 			OmitDefaultLibrary = "/NODEFAULTLIB",
-			Symbols = "/DEBUG",
 		},
 		kind = {
 			SharedLib = "/DLL",
+		},
+		symbols = {
+			On = "/DEBUG"
 		}
 	}
 
@@ -207,6 +234,16 @@
 		local map = iif(cfg.kind ~= premake.STATICLIB, msc.linkerFlags, msc.librarianFlags)
 		local flags = config.mapFlags(cfg, map)
 		table.insert(flags, 1, "/NOLOGO")
+
+		-- Ignore default libraries
+		for i, ignore in ipairs(cfg.ignoredefaultlibraries) do
+			-- Add extension if required
+			if not msc.getLibraryExtensions()[ignore:match("[^.]+$")] then
+				ignore = path.appendextension(ignore, ".lib")
+			end
+			table.insert(flags, '/NODEFAULTLIB:' .. ignore)
+		end
+
 		return flags
 	end
 
@@ -233,17 +270,30 @@
 
 
 --
+-- Return a list of valid library extensions
+--
+
+	function msc.getLibraryExtensions()
+		return {
+			["lib"] = true,
+			["obj"] = true,
+		}
+	end
+
+--
 -- Return the list of libraries to link, decorated with flags as needed.
 --
 
 	function msc.getlinks(cfg)
 		local links = config.getlinks(cfg, "system", "fullpath")
 		for i = 1, #links do
-			links[i] = path.appendextension(links[i], ".lib")
+			-- Add extension if required
+			if not msc.getLibraryExtensions()[links[i]:match("[^.]+$")] then
+				links[i] = path.appendextension(links[i], ".lib")
+			end
 		end
 		return links
 	end
-
 
 --
 -- Returns makefile-specific configuration rules.

@@ -15,12 +15,26 @@
 -- Register a command-line action for Visual Studio 2006.
 ---
 
-	function vs2005.generateSolution(sln)
+	function vs2005.generateSolution(wks)
 		p.indent("\t")
 		p.eol("\r\n")
 		p.escaper(vs2005.esc)
 
-		premake.generate(sln, ".sln", vstudio.sln2005.generate)
+		premake.generate(wks, ".sln", vstudio.sln2005.generate)
+
+		if _ACTION >= "vs2010" then
+			-- Skip generation of empty NuGet packages.config files
+			if p.workspace.hasProject(wks, function(prj) return #prj.nuget > 0 end) then
+				premake.generate(
+					{
+						location = path.join(wks.location, "packages.config"),
+						workspace = wks
+					},
+					nil,
+					vstudio.nuget2010.generatePackagesConfig
+				)
+			end
+		end
 	end
 
 
@@ -94,14 +108,14 @@
 			dotnet = { "msnet" },
 		},
 
-		-- Solution and project generation logic
+		-- Workspace and project generation logic
 
-		onSolution = vstudio.vs2005.generateSolution,
-		onProject  = vstudio.vs2005.generateProject,
+		onWorkspace = vstudio.vs2005.generateSolution,
+		onProject   = vstudio.vs2005.generateProject,
 
-		onCleanSolution = vstudio.cleanSolution,
-		onCleanProject  = vstudio.cleanProject,
-		onCleanTarget   = vstudio.cleanTarget,
+		onCleanWorkspace = vstudio.cleanSolution,
+		onCleanProject   = vstudio.cleanProject,
+		onCleanTarget    = vstudio.cleanTarget,
 
 		-- This stuff is specific to the Visual Studio exporters
 

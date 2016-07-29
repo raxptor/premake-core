@@ -4,8 +4,7 @@
 -- Copyright (c) 2011-2012 Jason Perkins and the Premake project
 --
 
-	T.vstudio_vs2010_project_refs = { }
-	local suite = T.vstudio_vs2010_project_refs
+	local suite = test.declare("vstudio_vs2010_project_refs")
 	local vc2010 = premake.vstudio.vc2010
 
 
@@ -13,17 +12,17 @@
 -- Setup
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2010"
-		sln = test.createsolution()
+		premake.action.set("vs2010")
+		wks = test.createWorkspace()
 		uuid "00112233-4455-6677-8888-99AABBCCDDEE"
-		test.createproject(sln)
+		test.createproject(wks)
 	end
 
 	local function prepare(platform)
-		prj = premake.solution.getproject(sln, 2)
+		prj = test.getproject(wks, 2)
 		vc2010.projectReferences(prj)
 	end
 

@@ -13,10 +13,11 @@
 -- Setup
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		sln, prj = test.createsolution()
+		premake.action.set("vs2010")
+		wks, prj = test.createWorkspace()
 	end
 
 	local function prepare()

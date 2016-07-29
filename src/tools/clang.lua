@@ -41,11 +41,37 @@
 --    An array of C compiler flags.
 --
 
+	clang.cflags = {
+		architecture = gcc.cflags.architecture,
+		flags = gcc.cflags.flags,
+		floatingpoint = gcc.cflags.floatingpoint,
+		strictaliasing = gcc.cflags.strictaliasing,
+		optimize = {
+			Off = "-O0",
+			On = "-O2",
+			Debug = "-O0",
+			Full = "-O3",
+			Size = "-Os",
+			Speed = "-O3",
+		},
+		pic = gcc.cflags.pic,
+		vectorextensions = gcc.cflags.vectorextensions,
+		warnings = gcc.cflags.warnings,
+		symbols = gcc.cflags.symbols
+	}
+
 	function clang.getcflags(cfg)
 
-		-- Just pass through to GCC for now
-		local flags = gcc.getcflags(cfg)
+		local flags = config.mapFlags(cfg, clang.cflags)
+		flags = table.join(flags, clang.getwarnings(cfg))
 		return flags
+
+	end
+
+	function clang.getwarnings(cfg)
+
+		-- Just pass through to GCC for now
+		return gcc.getwarnings(cfg)
 
 	end
 
@@ -155,6 +181,9 @@
 			x86 = "-m32",
 			x86_64 = "-m64",
 		},
+		flags = {
+			LinkTimeOptimization = "-flto",
+		},
 		kind = {
 			SharedLib = function(cfg)
 				local r = { iif(cfg.system == premake.MACOSX, "-dynamiclib", "-shared") }
@@ -211,12 +240,8 @@
 --    A list of libraries to link, decorated for the linker.
 --
 
-	function clang.getlinks(cfg, systemOnly)
-
-		-- Just pass through to GCC for now
-		local flags = gcc.getlinks(cfg, systemOnly)
-		return flags
-
+	function clang.getlinks(cfg, systemonly, nogroups)
+		return gcc.getlinks(cfg, systemonly, nogroups)
 	end
 
 

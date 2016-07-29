@@ -13,11 +13,11 @@
 -- Setup and teardown
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2005"
-		sln, prj = test.createsolution()
+		premake.action.set("vs2005")
+		wks, prj = test.createWorkspace()
 	end
 
 	local function prepare()

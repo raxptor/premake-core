@@ -8,9 +8,25 @@
 	local vstudio = premake.vstudio
 
 	local p = premake
-	local solution = p.solution
 	local project = p.project
 	local config = p.config
+
+
+--
+-- All valid .NET Framework versions, from oldest to newest.
+--
+
+	vstudio.frameworkVersions =
+	{
+		"1.0",
+		"1.1",
+		"2.0",
+		"3.0",
+		"3.5",
+		"4.0",
+		"4.5",
+		"4.6",
+	}
 
 
 --
@@ -341,7 +357,13 @@
 		-- Then the system libraries, which come undecorated
 		local system = config.getlinks(cfg, "system", "fullpath")
 		for i = 1, #system do
-			table.insert(links, path.appendextension(system[i], ".lib"))
+			-- Add extension if required
+			local link = system[i]
+			if not p.tools.msc.getLibraryExtensions()[link:match("[^.]+$")] then
+				link = path.appendextension(link, ".lib")
+			end
+
+			table.insert(links, link)
 		end
 
 		return links
@@ -375,7 +397,7 @@
 		if not cfg._needsExplicitLink then
 			local ex = cfg.flags.NoImplicitLink
 			if not ex then
-				local prjdeps = project.getdependencies(cfg.project)
+				local prjdeps = project.getdependencies(cfg.project, "linkOnly")
 				local cfgdeps = config.getlinks(cfg, "dependencies", "object")
 				ex = #prjdeps ~= #cfgdeps
 			end
@@ -399,7 +421,13 @@
 
 	function vstudio.path(cfg, value)
 		cfg = cfg.project or cfg
-		return path.translate(project.getrelative(cfg, value))
+		local dirs = path.translate(project.getrelative(cfg, value))
+
+		if type(dirs) == 'table' then
+			dirs = table.filterempty(dirs)
+		end
+
+		return dirs
 	end
 
 
@@ -509,7 +537,7 @@
 		local hasnative = false
 		local hasnet = false
 		local slnarch
-		for prj in solution.eachproject(cfg.solution) do
+		for prj in p.workspace.eachproject(cfg.workspace) do
 			if project.isnative(prj) then
 				hasnative = true
 			elseif project.isdotnet(prj) then
@@ -563,7 +591,7 @@
 		-- if the platform identifier matches a known system or architecture,
 		--
 
-		for prj in solution.eachproject(cfg.solution) do
+		for prj in p.workspace.eachproject(cfg.workspace) do
 			if project.isnative(prj) then
 				hasnative = true
 			elseif project.isdotnet(prj) then

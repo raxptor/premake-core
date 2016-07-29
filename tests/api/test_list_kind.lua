@@ -4,8 +4,7 @@
 -- Copyright (c) 2012 Jason Perkins and the Premake project
 --
 
-	T.api_list_kind = {}
-	local suite = T.api_list_kind
+	local suite = test.declare("api_list_kind")
 	local api = premake.api
 
 
@@ -21,7 +20,7 @@
 			scope = "project",
 			allowed = { "first", "second", "third" }
 		}
-		test.createsolution()
+		test.createWorkspace()
 	end
 
 	function suite.teardown()

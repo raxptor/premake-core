@@ -4,7 +4,7 @@
 -- Copyright (c) 2014 Jason Perkins and the Premake project
 --
 
-	local suite = test.declare("vs2010_import_targets")
+	local suite = test.declare("vs2010_extension_targets")
 	local vc2010 = premake.vstudio.vc2010
 	local project = premake.project
 
@@ -13,16 +13,17 @@
 -- Setup
 --
 
-	local sln
+	local wks
 
 	function suite.setup()
+		premake.action.set("vs2010")
 		rule "MyRules"
 		rule "MyOtherRules"
-		sln = test.createsolution()
+		wks = test.createWorkspace()
 	end
 
 	local function prepare()
-		local prj = test.getproject(sln)
+		local prj = test.getproject(wks)
 		vc2010.importExtensionTargets(prj)
 	end
 
@@ -34,7 +35,6 @@
 	function suite.structureIsCorrect_onDefaultValues()
 		prepare()
 		test.capture [[
-<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 <ImportGroup Label="ExtensionTargets">
 </ImportGroup>
 		]]
@@ -50,10 +50,26 @@
 		rules { "MyRules", "MyOtherRules" }
 		prepare()
 		test.capture [[
-<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 <ImportGroup Label="ExtensionTargets">
 	<Import Project="MyRules.targets" />
 	<Import Project="MyOtherRules.targets" />
+</ImportGroup>
+		]]
+	end
+
+
+--
+-- Writes entries for NuGet packages.
+--
+
+	function suite.addsImport_onEachNuGetPackage()
+		nuget { "boost:1.59.0-b1", "sdl2.v140:2.0.3", "sdl2.v140.redist:2.0.3" }
+		prepare()
+		test.capture [[
+<ImportGroup Label="ExtensionTargets">
+	<Import Project="packages\boost.1.59.0-b1\build\native\boost.targets" Condition="Exists('packages\boost.1.59.0-b1\build\native\boost.targets')" />
+	<Import Project="packages\sdl2.v140.2.0.3\build\native\sdl2.v140.targets" Condition="Exists('packages\sdl2.v140.2.0.3\build\native\sdl2.v140.targets')" />
+	<Import Project="packages\sdl2.v140.redist.2.0.3\build\native\sdl2.v140.redist.targets" Condition="Exists('packages\sdl2.v140.redist.2.0.3\build\native\sdl2.v140.redist.targets')" />
 </ImportGroup>
 		]]
 	end
@@ -68,9 +84,24 @@
 		location "build"
 		prepare()
 		test.capture [[
-<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 <ImportGroup Label="ExtensionTargets">
 	<Import Project="..\MyRules.targets" />
+</ImportGroup>
+		]]
+	end
+
+
+--
+-- the asm 'file category' should add the right target.
+--
+
+	function suite.hasAssemblyFiles()
+		files { "test.asm" }
+		location "build"
+		prepare()
+		test.capture [[
+<ImportGroup Label="ExtensionTargets">
+	<Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
 </ImportGroup>
 		]]
 	end

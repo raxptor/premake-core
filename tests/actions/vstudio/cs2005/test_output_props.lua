@@ -13,11 +13,11 @@
 -- Setup and teardown
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2005"
-		sln, prj = test.createsolution()
+		premake.action.set("vs2005")
+		wks, prj = test.createWorkspace()
 		language "C#"
 	end
 
@@ -45,19 +45,19 @@
 --
 
 	function suite.intermediateDirectory_onVs2008()
-		_ACTION = "vs2008"
+		premake.action.set("vs2008")
 		prepare()
 		test.capture [[
-		<OutputPath>.\</OutputPath>
+		<OutputPath>bin\Debug\</OutputPath>
 		<IntermediateOutputPath>obj\Debug\</IntermediateOutputPath>
 		]]
 	end
 
 	function suite.intermediateDirectory_onVs2010()
-		_ACTION = "vs2010"
+		premake.action.set("vs2010")
 		prepare()
 		test.capture [[
-		<OutputPath>.\</OutputPath>
+		<OutputPath>bin\Debug\</OutputPath>
 		<BaseIntermediateOutputPath>obj\Debug\</BaseIntermediateOutputPath>
 		<IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
 		]]

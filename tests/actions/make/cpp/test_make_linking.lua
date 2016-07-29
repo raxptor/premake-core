@@ -13,11 +13,11 @@
 -- Setup and teardown
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
 		_OS = "linux"
-		sln, prj = test.createsolution()
+		wks, prj = test.createWorkspace()
 	end
 
 	local function prepare(calls)
@@ -35,8 +35,8 @@
 		kind "SharedLib"
 		prepare { "ldFlags", "linkCmd" }
 		test.capture [[
-  ALL_LDFLAGS += $(LDFLAGS) -s -shared
-  LINKCMD = $(CXX) -o $(TARGET) $(OBJECTS) $(RESOURCES) $(ALL_LDFLAGS) $(LIBS)
+  ALL_LDFLAGS += $(LDFLAGS) -shared -s
+  LINKCMD = $(CXX) -o "$@" $(OBJECTS) $(RESOURCES) $(ALL_LDFLAGS) $(LIBS)
 		]]
 	end
 
@@ -50,8 +50,8 @@
 		kind "SharedLib"
 		prepare { "ldFlags", "linkCmd" }
 		test.capture [[
-  ALL_LDFLAGS += $(LDFLAGS) -s -shared
-  LINKCMD = $(CC) -o $(TARGET) $(OBJECTS) $(RESOURCES) $(ALL_LDFLAGS) $(LIBS)
+  ALL_LDFLAGS += $(LDFLAGS) -shared -s
+  LINKCMD = $(CC) -o "$@" $(OBJECTS) $(RESOURCES) $(ALL_LDFLAGS) $(LIBS)
 		]]
 	end
 
@@ -65,7 +65,22 @@
 		prepare { "ldFlags", "linkCmd" }
 		test.capture [[
   ALL_LDFLAGS += $(LDFLAGS) -s
-  LINKCMD = $(AR) -rcs $(TARGET) $(OBJECTS)
+  LINKCMD = $(AR) -rcs "$@" $(OBJECTS)
+		]]
+	end
+
+
+--
+-- Check link command for the Utility kind.
+--
+-- Utility projects should only run custom commands, and perform no linking.
+--
+
+	function suite.links_onUtility()
+		kind "Utility"
+		prepare { "linkCmd" }
+		test.capture [[
+  LINKCMD =
 		]]
 	end
 
@@ -80,7 +95,7 @@
 		prepare { "ldFlags", "linkCmd" }
 		test.capture [[
   ALL_LDFLAGS += $(LDFLAGS) -s
-  LINKCMD = libtool -o $(TARGET) $(OBJECTS)
+  LINKCMD = libtool -o "$@" $(OBJECTS)
 		]]
 	end
 
@@ -92,15 +107,15 @@
 	function suite.links_onSiblingStaticLib()
 		links "MyProject2"
 
-		test.createproject(sln)
+		test.createproject(wks)
 		kind "StaticLib"
 		location "build"
 
 		prepare { "ldFlags", "libs", "ldDeps" }
 		test.capture [[
   ALL_LDFLAGS += $(LDFLAGS) -s
-  LIBS += build/libMyProject2.a
-  LDDEPS += build/libMyProject2.a
+  LIBS += build/bin/Debug/libMyProject2.a
+  LDDEPS += build/bin/Debug/libMyProject2.a
 		]]
 	end
 
@@ -112,15 +127,15 @@
 	function suite.links_onSiblingSharedLib()
 		links "MyProject2"
 
-		test.createproject(sln)
+		test.createproject(wks)
 		kind "SharedLib"
 		location "build"
 
 		prepare { "ldFlags", "libs", "ldDeps" }
 		test.capture [[
   ALL_LDFLAGS += $(LDFLAGS) -s
-  LIBS += build/libMyProject2.so
-  LDDEPS += build/libMyProject2.so
+  LIBS += build/bin/Debug/libMyProject2.so
+  LDDEPS += build/bin/Debug/libMyProject2.so
 		]]
 	end
 
@@ -132,17 +147,66 @@
         links "MyProject2"
         flags { "RelativeLinks" }
 
-        test.createproject(sln)
+        test.createproject(wks)
         kind "SharedLib"
         location "build"
 
         prepare { "ldFlags", "libs", "ldDeps" }
         test.capture [[
-  ALL_LDFLAGS += $(LDFLAGS) -Lbuild -s
+  ALL_LDFLAGS += $(LDFLAGS) -Lbuild/bin/Debug -s
   LIBS += -lMyProject2
-  LDDEPS += build/libMyProject2.so
+  LDDEPS += build/bin/Debug/libMyProject2.so
         ]]
     end
+
+--
+-- Check a linking multiple siblings.
+--
+
+	function suite.links_onMultipleSiblingStaticLib()
+		links "MyProject2"
+		links "MyProject3"
+
+		test.createproject(wks)
+		kind "StaticLib"
+		location "build"
+
+		test.createproject(wks)
+		kind "StaticLib"
+		location "build"
+
+		prepare { "ldFlags", "libs", "ldDeps" }
+		test.capture [[
+  ALL_LDFLAGS += $(LDFLAGS) -s
+  LIBS += build/bin/Debug/libMyProject2.a build/bin/Debug/libMyProject3.a
+  LDDEPS += build/bin/Debug/libMyProject2.a build/bin/Debug/libMyProject3.a
+		]]
+	end
+
+--
+-- Check a linking multiple siblings with link groups enabled.
+--
+
+	function suite.links_onSiblingStaticLibWithLinkGroups()
+		links "MyProject2"
+		links "MyProject3"
+		linkgroups "On"
+
+		test.createproject(wks)
+		kind "StaticLib"
+		location "build"
+
+		test.createproject(wks)
+		kind "StaticLib"
+		location "build"
+
+		prepare { "ldFlags", "libs", "ldDeps" }
+		test.capture [[
+  ALL_LDFLAGS += $(LDFLAGS) -s
+  LIBS += -Wl,--start-group build/bin/Debug/libMyProject2.a build/bin/Debug/libMyProject3.a -Wl,--end-group
+  LDDEPS += build/bin/Debug/libMyProject2.a build/bin/Debug/libMyProject3.a
+		]]
+	end
 
 --
 -- When referencing an external library via a path, the directory

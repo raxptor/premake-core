@@ -14,10 +14,10 @@
 -- Setup/teardown
 --
 
-	local sln, prj, cfg
+	local wks, prj, cfg
 
 	function suite.setup()
-		sln, prj = test.createsolution()
+		wks, prj = test.createWorkspace()
 		system "Linux"
 	end
 
@@ -195,11 +195,33 @@
 
 
 --
+-- Check the translation of symbols.
+--
+
+	function suite.cflags_onDefaultSymbols()
+		prepare()
+		test.excludes({ "-g" }, gcc.getcflags(cfg))
+	end
+
+	function suite.cflags_onNoSymbols()
+		symbols "Off"
+		prepare()
+		test.excludes({ "-g" }, gcc.getcflags(cfg))
+	end
+
+	function suite.cflags_onSymbols()
+		symbols "On"
+		prepare()
+		test.contains({ "-g" }, gcc.getcflags(cfg))
+	end
+
+
+--
 -- Check the translation of CXXFLAGS.
 --
 
 	function suite.cflags_onNoExceptions()
-		flags { "NoExceptions" }
+		exceptionhandling "Off"
 		prepare()
 		test.contains({ "-fno-exceptions" }, gcc.getcxxflags(cfg))
 	end
@@ -221,7 +243,7 @@
 	end
 
 	function suite.ldflags_onSymbols()
-		flags { "Symbols" }
+		symbols "On"
 		prepare()
 		test.excludes("-s", gcc.getldflags(cfg))
 	end
@@ -259,7 +281,7 @@
 		system "Windows"
 		kind "SharedLib"
 		prepare()
-		test.contains({ "-shared", '-Wl,--out-implib="MyProject.lib"' }, gcc.getldflags(cfg))
+		test.contains({ "-shared", '-Wl,--out-implib="bin/Debug/MyProject.lib"' }, gcc.getldflags(cfg))
 	end
 
 	function suite.ldflags_onWindowsApp()
@@ -345,7 +367,7 @@
 	function suite.links_onStaticSiblingLibrary()
 		links { "MyProject2" }
 
-		test.createproject(sln)
+		test.createproject(wks)
 		system "Linux"
 		kind "StaticLib"
 		targetdir "lib"
@@ -362,7 +384,7 @@
 	function suite.links_onSharedSiblingLibrary()
 		links { "MyProject2" }
 
-		test.createproject(sln)
+		test.createproject(wks)
 		system "Linux"
 		kind "SharedLib"
 		targetdir "lib"
@@ -492,4 +514,21 @@
 		syslibdirs { "/usr/local/lib" }
 		prepare()
 		test.contains("-L/usr/local/lib", gcc.getLibraryDirectories(cfg))
+	end
+
+
+--
+-- Check handling of link time optimization flag.
+--
+
+	function suite.cflags_onLinkTimeOptimization()
+		flags "LinkTimeOptimization"
+		prepare()
+		test.contains("-flto", gcc.getcflags(cfg))
+	end
+
+	function suite.ldflags_onLinkTimeOptimization()
+		flags "LinkTimeOptimization"
+		prepare()
+		test.contains("-flto", gcc.getldflags(cfg))
 	end

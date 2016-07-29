@@ -26,26 +26,28 @@
 -- Generate a GNU make C++ project makefile, with support for the new platforms API.
 --
 
-	cpp.elements.makefile = {
-		"header",
-		"phonyRules",
-		"cppConfigs",
-		"cppObjects",
-		"shellType",
-		"cppTargetRules",
-		"targetDirRules",
-		"objDirRules",
-		"cppCleanRules",
-		"preBuildRules",
-		"preLinkRules",
-		"pchRules",
-		"cppFileRules",
-		"cppDependencies",
+	cpp.elements.makefile = function(prj)
+		return {
+			make.header,
+			make.phonyRules,
+			make.cppConfigs,
+			make.cppObjects,
+			make.shellType,
+			make.cppTargetRules,
+			make.targetDirRules,
+			make.objDirRules,
+			make.cppCleanRules,
+			make.preBuildRules,
+			make.preLinkRules,
+			make.pchRules,
+			make.cppFileRules,
+			make.cppDependencies,
 	}
+	end
 
 	function make.cpp.generate(prj)
 		premake.eol("\n")
-		premake.callarray(make, cpp.elements.makefile, prj)
+		premake.callArray(cpp.elements.makefile, prj)
 	end
 
 
@@ -53,46 +55,57 @@
 -- Write out the settings for a particular configuration.
 --
 
-	cpp.elements.configuration = {
-		"cppTools",
-		"target",
-		"objdir",
-		"pch",
-		"defines",
-		"includes",
-		"forceInclude",
-		"cppFlags",
-		"cFlags",
-		"cxxFlags",
-		"resFlags",
-		"libs",
-		"ldDeps",
-		"ldFlags",
-		"linkCmd",
-		"preBuildCmds",
-		"preLinkCmds",
-		"postBuildCmds",
-		"cppAllRules",
-		"settings",
+	cpp.elements.configuration = function(cfg)
+		return {
+			make.cppTools,
+			make.target,
+			make.objdir,
+			make.pch,
+			make.defines,
+			make.includes,
+			make.forceInclude,
+			make.cppFlags,
+			make.cFlags,
+			make.cxxFlags,
+			make.resFlags,
+			make.libs,
+			make.ldDeps,
+			make.ldFlags,
+			make.linkCmd,
+			make.exePaths,
+			make.preBuildCmds,
+			make.preLinkCmds,
+			make.postBuildCmds,
+			make.cppAllRules,
+			make.settings,
 	}
+	end
 
 	function make.cppConfigs(prj)
 		for cfg in project.eachconfig(prj) do
 			-- identify the toolset used by this configurations (would be nicer if
 			-- this were computed and stored with the configuration up front)
 
-			local toolset = premake.tools[cfg.toolset or "gcc"]
+			local toolset = premake.tools[_OPTIONS.cc or cfg.toolset or "gcc"]
 			if not toolset then
-				error("Invalid toolset '" + cfg.toolset + "'")
+				error("Invalid toolset '" .. cfg.toolset .. "'")
 			end
 
 			_x('ifeq ($(config),%s)', cfg.shortname)
-			premake.callarray(make, cpp.elements.configuration, cfg, toolset)
+			premake.callArray(cpp.elements.configuration, cfg, toolset)
 			_p('endif')
 			_p('')
 		end
 	end
 
+
+	function make.exePaths(cfg)
+		local dirs = project.getrelative(cfg.project, cfg.bindirs)
+		if #dirs > 0 then
+			_p('  EXECUTABLE_PATHS = "%s"', table.concat(dirs, ":"))
+			_p('  EXE_PATHS = export PATH=$(EXECUTABLE_PATHS):$$PATH;')
+		end
+	end
 
 --
 -- Build command for a single file.
@@ -167,7 +180,11 @@
 
 				local cmds = os.translateCommands(filecfg.buildcommands)
 				for _, cmd in ipairs(cmds) do
-					_p('\t$(SILENT) %s', cmd)
+					if cfg.bindirs and #cfg.bindirs > 0 then
+						_p('\t$(SILENT) $(EXE_PATHS) %s', cmd)
+					else
+						_p('\t$(SILENT) %s', cmd)
+					end
 				end
 				_p('endif')
 			end
@@ -348,7 +365,7 @@
 
 
 	function make.cppTargetRules(prj)
-		_p('$(TARGET): $(GCH) $(OBJECTS) $(LDDEPS) $(RESOURCES) ${CUSTOMFILES}')
+		_p('$(TARGET): $(GCH) ${CUSTOMFILES} $(OBJECTS) $(LDDEPS) $(RESOURCES)')
 		_p('\t@echo Linking %s', prj.name)
 		_p('\t$(SILENT) $(LINKCMD)')
 		_p('\t$(POSTBUILDCMDS)')
@@ -386,7 +403,7 @@
 
 
 	function make.defines(cfg, toolset)
-		_p('  DEFINES +=%s', make.list(table.join(toolset.getdefines(cfg.defines), toolset.getundefines(cfg.undefines))))
+		_p('  DEFINES +=%s', make.list(table.join(toolset.getdefines(cfg.defines, cfg), toolset.getundefines(cfg.undefines))))
 	end
 
 
@@ -400,7 +417,7 @@
 
 
 	function make.includes(cfg, toolset)
-		local includes = premake.esc(toolset.getincludedirs(cfg, cfg.includedirs, cfg.sysincludedirs))
+		local includes = toolset.getincludedirs(cfg, cfg.includedirs, cfg.sysincludedirs)
 		_p('  INCLUDES +=%s', make.list(includes))
 	end
 
@@ -426,10 +443,13 @@
 	function make.linkCmd(cfg, toolset)
 		if cfg.kind == premake.STATICLIB then
 			if cfg.architecture == premake.UNIVERSAL then
-				_p('  LINKCMD = libtool -o $(TARGET) $(OBJECTS)')
+				_p('  LINKCMD = libtool -o "$@" $(OBJECTS)')
 			else
-				_p('  LINKCMD = $(AR) -rcs $(TARGET) $(OBJECTS)')
+				_p('  LINKCMD = $(AR) -rcs "$@" $(OBJECTS)')
 			end
+		elseif cfg.kind == premake.UTILITY then
+			-- Empty LINKCMD for Utility (only custom build rules)
+			_p('  LINKCMD =')
 		else
 			-- this was $(TARGET) $(LDFLAGS) $(OBJECTS)
 			--   but had trouble linking to certain static libs; $(OBJECTS) moved up
@@ -437,7 +457,7 @@
 			-- $(LIBS) moved to end (http://sourceforge.net/p/premake/bugs/279/)
 
 			local cc = iif(cfg.language == "C", "CC", "CXX")
-			_p('  LINKCMD = $(%s) -o $(TARGET) $(OBJECTS) $(RESOURCES) $(ALL_LDFLAGS) $(LIBS)', cc)
+			_p('  LINKCMD = $(%s) -o "$@" $(OBJECTS) $(RESOURCES) $(ALL_LDFLAGS) $(LIBS)', cc)
 		end
 	end
 
@@ -460,12 +480,27 @@
 		-- add a conditional configuration to the project script.
 
 		local pch = cfg.pchheader
-		for _, incdir in ipairs(cfg.includedirs) do
-			local testname = path.join(incdir, pch)
-			if os.isfile(testname) then
-				pch = project.getrelative(cfg.project, testname)
-				break
+		local found = false
+
+		-- test locally in the project folder first (this is the most likely location)
+		local testname = path.join(cfg.project.basedir, pch)
+		if os.isfile(testname) then
+			pch = project.getrelative(cfg.project, testname)
+			found = true
+		else
+			-- else scan in all include dirs.
+			for _, incdir in ipairs(cfg.includedirs) do
+				testname = path.join(incdir, pch)
+				if os.isfile(testname) then
+					pch = project.getrelative(cfg.project, testname)
+					found = true
+					break
+				end
 			end
+		end
+
+		if not found then
+			pch = project.getrelative(cfg.project, path.getabsolute(pch))
 		end
 
 		_x('  PCH = %s', pch)

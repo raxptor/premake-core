@@ -13,11 +13,12 @@
 -- Setup
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
+		premake.action.set("vs2005")
 		premake.escaper(premake.vstudio.vs2005.esc)
-		sln, prj = test.createsolution()
+		wks, prj = test.createWorkspace()
 	end
 
 	local function prepare()

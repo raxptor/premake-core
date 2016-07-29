@@ -42,9 +42,9 @@
 		},
 		flags = {
 			FatalCompileWarnings = "-Werror",
+			LinkTimeOptimization = "-flto",
 			NoFramePointer = "-fomit-frame-pointer",
 			ShadowedVariables = "-Wshadow",
-			Symbols = "-g",
 			UndefinedIdentifiers = "-Wundef",
 		},
 		floatingpoint = {
@@ -73,10 +73,16 @@
 			AVX2 = "-mavx2",
 			SSE = "-msse",
 			SSE2 = "-msse2",
+			SSE3 = "-msse3",
+			SSSE3 = "-mssse3",
+			["SSE4.1"] = "-msse4.1",
 		},
 		warnings = {
 			Extra = "-Wall -Wextra",
 			Off = "-w",
+		},
+		symbols = {
+			On = "-g"
 		}
 	}
 
@@ -106,12 +112,16 @@
 --
 
 	gcc.cxxflags = {
+		exceptionhandling = {
+			Off = "-fno-exceptions"
+		},
 		flags = {
-			NoExceptions = "-fno-exceptions",
-			NoRTTI = "-fno-rtti",
 			NoBufferSecurityCheck = "-fno-stack-protector",
 			["C++11"] = "-std=c++11",
 			["C++14"] = "-std=c++14",
+		},
+		rtti = {
+			Off = "-fno-rtti"
 		}
 	}
 
@@ -128,7 +138,7 @@
 	function gcc.getdefines(defines)
 		local result = {}
 		for _, define in ipairs(defines) do
-			table.insert(result, '-D' .. define)
+			table.insert(result, '-D' .. p.esc(define))
 		end
 		return result
 	end
@@ -136,7 +146,7 @@
 	function gcc.getundefines(undefines)
 		local result = {}
 		for _, undefine in ipairs(undefines) do
-			table.insert(result, '-U' .. undefine)
+			table.insert(result, '-U' .. p.esc(undefine))
 		end
 		return result
 	end
@@ -186,16 +196,18 @@
 -- Return a list of LDFLAGS for a specific configuration.
 --
 
+	function gcc.ldsymbols(cfg)
+		-- OS X has a bug, see http://lists.apple.com/archives/Darwin-dev/2006/Sep/msg00084.html
+		return iif(cfg.system == premake.MACOSX, "-Wl,-x", "-s")
+	end
+
 	gcc.ldflags = {
 		architecture = {
 			x86 = "-m32",
 			x86_64 = "-m64",
 		},
 		flags = {
-			_Symbols = function(cfg)
-				-- OS X has a bug, see http://lists.apple.com/archives/Darwin-dev/2006/Sep/msg00084.html
-				return iif(cfg.system == premake.MACOSX, "-Wl,-x", "-s")
-			end,
+			LinkTimeOptimization = "-flto",
 		},
 		kind = {
 			SharedLib = function(cfg)
@@ -211,6 +223,10 @@
 		},
 		system = {
 			wii = "$(MACHDEP)",
+		},
+		symbols = {
+			Off = gcc.ldsymbols,
+			Default = gcc.ldsymbols,
 		}
 	}
 
@@ -267,14 +283,14 @@
 -- Return the list of libraries to link, decorated with flags as needed.
 --
 
-	function gcc.getlinks(cfg, systemonly)
+	function gcc.getlinks(cfg, systemonly, nogroups)
 		local result = {}
 
 		if not systemonly then
 			if cfg.flags.RelativeLinks then
 				local libFiles = config.getlinks(cfg, "siblings", "basename")
 				for _, link in ipairs(libFiles) do
-					if string.find(link, "lib") == 1 then
+					if string.startswith(link, "lib") then
 						link = link:sub(4)
 					end
 					table.insert(result, "-l" .. link)
@@ -285,6 +301,11 @@
 				-- just list out the full relative path to the library.
 				result = config.getlinks(cfg, "siblings", "fullpath")
 			end
+		end
+
+		if not nogroups and #result > 1 and (cfg.linkgroups == p.ON) then
+			table.insert(result, 1, "-Wl,--start-group")
+			table.insert(result, "-Wl,--end-group")
 		end
 
 		-- The "-l" flag is fine for system libraries
@@ -346,13 +367,9 @@
 	}
 
 	function gcc.gettoolname(cfg, tool)
-		local names = gcc.tools[cfg.architecture] or gcc.tools[cfg.system] or {}
-		local name = names[tool]
-
-		if not name and (tool == "rc" or cfg.gccprefix) and gcc.tools[tool] then
-			name = (cfg.gccprefix or "") .. gcc.tools[tool]
+		if (cfg.gccprefix and gcc.tools[tool]) or tool == "rc" then
+			return (cfg.gccprefix or "") .. gcc.tools[tool]
 		end
-
-		return name
+		return nil
 	end
 

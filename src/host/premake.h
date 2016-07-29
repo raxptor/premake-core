@@ -9,6 +9,9 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#define PREMAKE_VERSION        "5.0.0-dev"
+#define PREMAKE_COPYRIGHT      "Copyright (C) 2002-2016 Jason Perkins and the Premake Project"
+#define PREMAKE_PROJECT_URL    "https://github.com/premake/premake-core/wiki"
 
 /* Identify the current platform I'm not sure how to reliably detect
  * Windows but since it is the most common I use it as the default */
@@ -95,10 +98,12 @@ int path_isabsolute(lua_State* L);
 int path_join(lua_State* L);
 int path_normalize(lua_State* L);
 int path_translate(lua_State* L);
+int path_wildcards(lua_State* L);
 int os_chdir(lua_State* L);
 int os_chmod(lua_State* L);
 int os_copyfile(lua_State* L);
 int os_getcwd(lua_State* L);
+int os_getpass(lua_State* L);
 int os_getversion(lua_State* L);
 int os_is64bit(lua_State* L);
 int os_isdir(lua_State* L);
@@ -117,18 +122,42 @@ int os_rmdir(lua_State* L);
 int os_stat(lua_State* L);
 int os_uuid(lua_State* L);
 int os_writefile_ifnotequal(lua_State* L);
+int os_compile(lua_State* L);
 int string_endswith(lua_State* L);
 int string_hash(lua_State* L);
 int string_sha1(lua_State* L);
 int string_startswith(lua_State* L);
+int buffered_new(lua_State* L);
+int buffered_write(lua_State* L);
+int buffered_writeln(lua_State* L);
+int buffered_close(lua_State* L);
+int buffered_tostring(lua_State* L);
+
+#ifdef PREMAKE_CURL
+int http_get(lua_State* L);
+int http_download(lua_State* L);
+#endif
+
+#ifdef PREMAKE_COMPRESSION
+int zip_extract(lua_State* L);
+#endif
 
 /* Engine interface */
+
+typedef struct
+{
+	const char*          name;
+	const unsigned char* bytecode;
+	size_t               length;
+} buildin_mapping;
+
+extern const buildin_mapping builtin_scripts[];
+
+
 int premake_init(lua_State* L);
 int premake_execute(lua_State* L, int argc, const char** argv, const char* script);
 int premake_load_embedded_script(lua_State* L, const char* filename);
+const buildin_mapping* premake_find_embedded_script(const char* filename);
+
 int premake_locate_executable(lua_State* L, const char* argv0);
 int premake_test_file(lua_State* L, const char* filename, int searchMask);
-
-
-extern const char* builtin_scripts_index[];
-extern const char* builtin_scripts[];

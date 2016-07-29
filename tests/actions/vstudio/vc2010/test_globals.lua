@@ -12,15 +12,15 @@
 -- Setup
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2010"
-		sln = test.createsolution()
+		premake.action.set("vs2010")
+		wks = test.createWorkspace()
 	end
 
 	local function prepare()
-		prj = premake.solution.getproject(sln, 1)
+		prj = test.getproject(wks, 1)
 		vc2010.globals(prj)
 	end
 
@@ -32,11 +32,11 @@
 	function suite.structureIsCorrect_onDefaultValues()
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<Keyword>Win32Proj</Keyword>
-		<RootNamespace>MyProject</RootNamespace>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
 		]]
 	end
 
@@ -49,12 +49,12 @@
 		clr "On"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-		<Keyword>ManagedCProj</Keyword>
-		<RootNamespace>MyProject</RootNamespace>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+	<Keyword>ManagedCProj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
 		]]
 	end
 
@@ -65,30 +65,30 @@
 
 	function suite.frameworkVersionIsCorrect_onSpecificVersion()
 		clr "On"
-		framework "4.5"
+		dotnetframework "4.5"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-		<Keyword>ManagedCProj</Keyword>
-		<RootNamespace>MyProject</RootNamespace>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+	<Keyword>ManagedCProj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
 		]]
 	end
 
 	function suite.frameworkVersionIsCorrect_on2013()
-		_ACTION = "vs2013"
+		premake.action.set("vs2013")
 		clr "On"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
-		<TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-		<Keyword>ManagedCProj</Keyword>
-		<RootNamespace>MyProject</RootNamespace>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+	<TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+	<Keyword>ManagedCProj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
 		]]
 	end
 
@@ -100,9 +100,9 @@
 		system "Linux"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+</PropertyGroup>
 		]]
 	end
 
@@ -118,11 +118,11 @@
 			system "Linux"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<Keyword>Win32Proj</Keyword>
-		<RootNamespace>MyProject</RootNamespace>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
 		]]
 	end
 
@@ -135,10 +135,10 @@
 		kind "Makefile"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<Keyword>MakeFileProj</Keyword>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<Keyword>MakeFileProj</Keyword>
+</PropertyGroup>
 		]]
 	end
 
@@ -146,10 +146,10 @@
 		kind "None"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<Keyword>MakeFileProj</Keyword>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<Keyword>MakeFileProj</Keyword>
+</PropertyGroup>
 		]]
 	end
 
@@ -163,12 +163,12 @@
 		filename "MyProject_2012"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<Keyword>Win32Proj</Keyword>
-		<RootNamespace>MyProject</RootNamespace>
-		<ProjectName>MyProject</ProjectName>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+	<ProjectName>MyProject</ProjectName>
+</PropertyGroup>
 		]]
 	end
 
@@ -180,14 +180,75 @@
 --
 
 	function suite.structureIsCorrect_on2013()
+		premake.action.set("vs2013")
+		prepare()
+		test.capture [[
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
+		]]
+	end
+
+
+--
+-- VS 2015 adds the <WindowsTargetPlatformVersion> to allow developers
+-- to target different versions of the Windows SDK.
+--
+
+	function suite.windowsTargetPlatformVersionMissing_on2013Default()
 		_ACTION = "vs2013"
 		prepare()
 		test.capture [[
-	<PropertyGroup Label="Globals">
-		<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
-		<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
-		<Keyword>Win32Proj</Keyword>
-		<RootNamespace>MyProject</RootNamespace>
-	</PropertyGroup>
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
+		]]
+	end
+
+	function suite.windowsTargetPlatformVersionMissing_on2013()
+		_ACTION = "vs2013"
+		systemversion "10.0.10240.0"
+		prepare()
+		test.capture [[
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
+		]]
+	end
+
+	function suite.windowsTargetPlatformVersionMissing_on2015Default()
+		_ACTION = "vs2015"
+		prepare()
+		test.capture [[
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+</PropertyGroup>
+		]]
+	end
+
+	function suite.windowsTargetPlatformVersion_on2015()
+		_ACTION = "vs2015"
+		systemversion "10.0.10240.0"
+		prepare()
+		test.capture [[
+<PropertyGroup Label="Globals">
+	<ProjectGuid>{42B5DBC6-AE1F-903D-F75D-41E363076E92}</ProjectGuid>
+	<IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+	<Keyword>Win32Proj</Keyword>
+	<RootNamespace>MyProject</RootNamespace>
+	<WindowsTargetPlatformVersion>10.0.10240.0</WindowsTargetPlatformVersion>
+</PropertyGroup>
 		]]
 	end

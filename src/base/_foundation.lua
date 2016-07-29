@@ -4,15 +4,23 @@
 ---
 
 	premake = premake or {}
-	premake.modules = {}
+	premake._VERSION = _PREMAKE_VERSION
+	package.loaded["premake"] = premake
 
+	premake.modules = {}
 	premake.extensions = premake.modules
+
+	local semver = dofile('semver.lua')
+	local p = premake
 
 
 -- Keep track of warnings that have been shown, so they don't get shown twice
 
 	local _warnings = {}
 
+-- Keep track of aliased functions, so I can resolve to canonical names
+
+	local _aliases = {}
 
 --
 -- Define some commonly used symbols, for future-proofing.
@@ -29,12 +37,16 @@
 	premake.LINUX       = "linux"
 	premake.MACOSX      = "macosx"
 	premake.MAKEFILE    = "Makefile"
+	premake.MBCS        = "MBCS"
 	premake.NONE        = "None"
+	premake.DEFAULT     = "Default"
+	premake.ON          = "On"
 	premake.OFF         = "Off"
 	premake.POSIX       = "posix"
 	premake.PS3         = "ps3"
 	premake.SHAREDLIB   = "SharedLib"
 	premake.STATICLIB   = "StaticLib"
+	premake.UNICODE     = "Unicode"
 	premake.UNIVERSAL   = "universal"
 	premake.UTILITY     = "Utility"
 	premake.WINDOWEDAPP = "WindowedApp"
@@ -42,6 +54,36 @@
 	premake.X86         = "x86"
 	premake.X86_64      = "x86_64"
 	premake.XBOX360     = "xbox360"
+
+
+
+---
+-- Provide an alias for a function in a namespace. Calls to the alias will
+-- invoke the canonical function, and attempts to override the alias will
+-- instead override the canonical call.
+--
+-- @param scope
+--    The table containing the function to be overridden. Use _G for
+--    global functions.
+-- @param canonical
+--    The name of the function to be aliased (a string value)
+-- @param alias
+--    The new alias for the function (another string value).
+---
+
+	function p.alias(scope, canonical, alias)
+		scope, canonical = p.resolveAlias(scope, canonical)
+		if not scope[canonical] then
+			error("unable to alias '" .. canonical .. "'; no such function", 2)
+		end
+
+		_aliases[scope] = _aliases[scope] or {}
+		_aliases[scope][alias] = canonical
+
+		scope[alias] = function(...)
+			return scope[canonical](...)
+		end
+	end
 
 
 
@@ -61,8 +103,10 @@
 		if type(funcs) == "function" then
 			funcs = funcs(...)
 		end
-		for i = 1, #funcs do
-			funcs[i](...)
+		if funcs then
+			for i = 1, #funcs do
+				funcs[i](...)
+			end
 		end
 	end
 
@@ -74,7 +118,7 @@
 		for i = 1, n do
 			local fn = namespace[array[i]]
 			if not fn then
-                error(string.format("Unable to find function '%s'", array[i]))
+				error(string.format("Unable to find function '%s'", array[i]))
 			end
 			fn(...)
 		end
@@ -84,9 +128,68 @@
 
 
 ---
--- Clears the list of already fired warning messages, allowing them
--- to be fired again.
+-- Compare a version string that uses semver semantics against a
+-- version comparision string. Comparisions take the form of ">=5.0" (5.0 or
+-- later), "5.0" (5.0 or later), ">=5.0 <6.0" (5.0 or later but not 6.0 or
+-- later).
+--
+-- @param version
+--    The version to be tested.
+-- @param checks
+--    The comparision string to be evaluated.
+-- @return
+--    True if the comparisions pass, false if any fail.
 ---
+
+	function p.checkVersion(version, checks)
+		if not version then
+			return false
+		end
+
+		local function eq(a, b) return a == b end
+		local function le(a, b) return a <= b end
+		local function lt(a, b) return a < b  end
+		local function ge(a, b) return a >= b end
+		local function gt(a, b) return a > b  end
+		local function compat(a, b) return a ^ b  end
+
+		version = semver(version)
+		checks = string.explode(checks, " ", true)
+		for i = 1, #checks do
+			local check = checks[i]
+			local func
+			if check:startswith(">=") then
+				func = ge
+				check = check:sub(3)
+			elseif check:startswith(">") then
+				func = gt
+				check = check:sub(2)
+			elseif check:startswith("<=") then
+				func = le
+				check = check:sub(3)
+			elseif check:startswith("<") then
+				func = lt
+				check = check:sub(2)
+			elseif check:startswith("=") then
+				func = eq
+				check = check:sub(2)
+			elseif check:startswith("^") then
+				func = compat
+				check = check:sub(2)
+			else
+				func = ge
+			end
+
+			check = semver(check)
+			if not func(version, check) then
+				return false
+			end
+		end
+
+		return true
+	end
+
+
 
 	function premake.clearWarnings()
 		_warnings = {}
@@ -106,6 +209,20 @@
 
 	function premake.error(message, ...)
 		error(string.format("** Error: " .. message, ...), 0)
+	end
+
+
+--
+-- Finds the correct premake script filename to be run.
+--
+-- @param fname
+--    The filename of the script to run.
+-- @return
+--    The correct location and filename of the script to run.
+--
+
+	function premake.findProjectScript(fname)
+		return os.locate(fname, fname .. ".lua", path.join(fname, "premake5.lua"), path.join(fname, "premake4.lua"))
 	end
 
 
@@ -151,10 +268,13 @@
 ---
 
 	function premake.override(scope, name, repl)
+		scope, name = p.resolveAlias(scope, name)
+
 		local original = scope[name]
 		if not original then
 			error("unable to override '" .. name .. "'; no such function", 2)
 		end
+
 		scope[name] = function(...)
 			return repl(original, ...)
 		end
@@ -170,6 +290,30 @@
 		if scope == premake.main then
 			table.replace(premake.main.elements, original, scope[name])
 		end
+	end
+
+
+
+---
+-- Find the canonical name and scope of a function, resolving any aliases.
+--
+-- @param scope
+--    The table containing the function to be overridden. Use _G for
+--    global functions.
+-- @param name
+--    The name of the function to resolve.
+-- @return
+--    The canonical scope and function name (a string value).
+---
+
+	function p.resolveAlias(scope, name)
+		local aliases = _aliases[scope]
+		if aliases then
+			while aliases[name] do
+				name = aliases[name]
+			end
+		end
+		return scope, name
 	end
 
 

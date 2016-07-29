@@ -4,8 +4,7 @@
 -- Copyright (c) 2012 Jason Perkins and the Premake project
 --
 
-	T.api_path_kind = {}
-	local suite = T.api_path_kind
+	local suite = test.declare("api_path_kind")
 	local api = premake.api
 
 
@@ -15,11 +14,11 @@
 
 	function suite.setup()
 		api.register {
-			name = "testapi", 
-			kind = "path", 
+			name = "testapi",
+			kind = "path",
 			scope = "project"
 		}
-		test.createsolution()
+		test.createWorkspace()
 	end
 
 	function suite.teardown()

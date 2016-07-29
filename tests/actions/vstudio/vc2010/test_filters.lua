@@ -12,15 +12,15 @@
 -- Setup/teardown
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2010"
-		sln = test.createsolution()
+		premake.action.set("vs2010")
+		wks = test.createWorkspace()
 	end
 
 	local function prepare(group)
-		prj = test.getproject(sln)
+		prj = test.getproject(wks)
 		vc2010.filterGroups(prj)
 	end
 
@@ -64,13 +64,13 @@
 		prepare()
 		test.capture [[
 <ItemGroup>
-	<None Include="hello.txt" />
-</ItemGroup>
-<ItemGroup>
 	<ClInclude Include="hello.h" />
 </ItemGroup>
 <ItemGroup>
 	<ClCompile Include="hello.c" />
+</ItemGroup>
+<ItemGroup>
+	<None Include="hello.txt" />
 </ItemGroup>
 <ItemGroup>
 	<ResourceCompile Include="hello.rc" />
@@ -181,6 +181,20 @@
 		test.capture [[
 <ItemGroup>
 	<Animation Include="hello.dae" />
+</ItemGroup>
+		]]
+	end
+
+
+--
+-- Check handling of .asm files
+--
+	function suite.itemGroup_onNoneSection()
+		files { "hello.asm" }
+		prepare()
+		test.capture [[
+<ItemGroup>
+	<Masm Include="hello.asm" />
 </ItemGroup>
 		]]
 	end

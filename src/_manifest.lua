@@ -19,6 +19,7 @@
 		"base/tools.lua",
 		"base/tree.lua",
 		"base/globals.lua",
+		"base/semver.lua",
 
 		-- configuration data
 		"base/field.lua",
@@ -37,7 +38,7 @@
 
 		-- project objects
 		"base/global.lua",
-		"base/solution.lua",
+		"base/workspace.lua",
 		"base/group.lua",
 		"base/project.lua",
 		"base/config.lua",
@@ -59,9 +60,11 @@
 
 		-- GNU make action
 		"actions/make/_make.lua",
-		"actions/make/make_solution.lua",
+		"actions/make/make_workspace.lua",
 		"actions/make/make_cpp.lua",
 		"actions/make/make_csharp.lua",
+		"actions/make/make_utility.lua",
+		"actions/make/make_makefile.lua",
 
 		-- Visual Studio actions
 		"actions/vstudio/_vstudio.lua",
@@ -73,6 +76,7 @@
 		"actions/vstudio/vs2005_csproj.lua",
 		"actions/vstudio/vs2005_csproj_user.lua",
 		"actions/vstudio/vs2010.lua",
+		"actions/vstudio/vs2010_nuget.lua",
 		"actions/vstudio/vs2010_vcxproj.lua",
 		"actions/vstudio/vs2010_vcxproj_user.lua",
 		"actions/vstudio/vs2010_vcxproj_filters.lua",

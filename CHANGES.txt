@@ -5,6 +5,114 @@
 See https://github.com/premake/premake-core/wiki/What's-New-in-5.0
 for the complete list of changes from the Premake 4.x series.
 
+Since 5.0-alpha8:
+
+* New: `buildcustomizations()` imports custom .props files for VS
+* New: `frameworksdir()` for Xcode and Make OS X projects
+* New: `nuget()` to specify NuGet packages for VS projects
+* New: `systemversion()` to specify VS target platform
+* New: `io.readfile()` and `io.writefile()`
+* New: Configurations may now be filtered by toolset
+* New: HTTP calls now support authentication
+* New: Support for XSD files in VS C# projects
+* New: MASM file categorization for VS
+* New: Integrated test framework for Premake module developers
+* Fix: VS filter ordering is now deterministic
+* Fix: VS projects and groups may now have the same name
+* Fix: May now use '.' within shell variable tokens
+* Fix: path.translate() now defaults to target system separator
+* Fix: getextension() now handles multiple dots
+* Fix: replaceextension() no longer adds leading dot
+* Fix: Improved configuration baking performance
+* Fix: Use -O0 for Clang debug optimization level
+* Fix: CodeLite now uses portable path separators
+* Fix: Improved ability to find precompiled headers in Makefiles
+* Fix: Properly escape defines in Makefile projects
+* Fix: Correct casing of UTF8 marker on Visual Studio rule files
+
+Since 5.0-alpha7:
+
+* New API: characterset()
+* New API: editorintegration()
+* New API: largeaddressaware()
+* New: Visual Studio projects now default to Unicode
+* New: Utility and Makefile project support for GMake exporter
+* New: Updated Curl to 7.45.0
+* Fix: Absolute path handling and error reporting in tokens
+* Fix: Limit use of TargetMachine to static resource library projects
+* Fix: Embed minified scripts by default, rather than bytecode
+* Fix: os.isfile() now detects Windows symbolic links
+* Fix: Correct handling of DOS environment variables in paths
+* Fix: Buffer overflow in buffered writes of large strings
+* Fix: Improved handling of absolute vs. relative path tokens
+* Fix: --cc command line option works again (stream009)
+* Fix: Use relative paths for PCH in Makefiles (stream009)
+
+Since 5.0-alpha6:
+
+* New API: additionalusingdirectories()
+* New API: largeaddressaware()
+* New: Embed bytecode to enable better debugging information
+* New: Display elapsed time at completion
+* New: Utility project support for Makefiles
+* New: Enabled SSL support in HTTP functions
+* Fix: Reduce memory usage during baking
+* Fix: Improve performance of wildcard processing
+* Fix: Preserve environment in recursive token expansion
+* Fix: Added missing defines in bootstrap script
+* Fix: Remove /usr/lib64 directories from Mac builds
+* Fix: Added newline after UTF-8 marker in Visual Studio projects
+* Fix: Duplicate escaping on include directories in Makefiles
+* Fix: os.isdir() now works with Windows symbolic links
+* Fix: Use correct path separators in C# response files
+
+Since 5.0-alpha5:
+
+* New API: ignoredefaultlibraries()
+* New: Support LLVM platform toolset in Visual Studio
+* New: Add framework folder path support
+* Fix: Improved path.normalize() handling of DOS drive letters (StiX)
+* Fix: os.match...() now supports more complex patterns
+* Fix: Only generate project files if changed
+* Fix: Improve handling of user platform names in Visual Studio
+* Fix: Duplicate ".lib" extensions in Visual Studio
+* Fix: Improve handling of mixed case command line options
+* Fix: Remove `/E` option from Windows copy operations
+* Fix: Multiple externalproject() calls to same project
+* Fix: Improved determinism of generated project elements
+* Fix: Set platform toolset for emtpty Visual Studio projects
+* Fix: Better ".." handling for path.join()
+
+Since 5.0-alpha4:
+
+* New: Rename solution() to workspace()
+* New API: customtoolnamespace() (tbasnoopy)
+* New API: debuggertype() (tbasnoopy)
+* New API: entrypoint() (Blizzard)
+* New API: exceptionhandling() and rtti() (Blizzard)
+* New API: http.get() and http.download() (Blizzard)
+* New API: inlining() (Blizzard)
+* New API: zip.extract() (Blizzard)
+* New: `require()` now accepts optional version ranges
+* New: Preloaded modules now return a "should load" test function
+* New: Added support for IDL files in VC 2010+ (rhuvendiek)
+* New: Added `file.directory` to token environment (Gabi Davar)
+* New: Solution configurations are now fully baked (Blizzard)
+* New: Enabled per-file configuration queries (Blizzard)
+* New: Added more table functions (Blizzard)
+* New: Added more values for floatingpoint()
+* Fix: Enabled link-time optimization for Clang and GCC
+* Fix: Module loader now reports script errors correctly (Tim Wharton)
+* Fix: Wrap makefile targets in quotes (leeonix)
+* Fix: Provide better default target directories (Blizzard)
+* Fix: Escape backslashes in tokens (Damien Courtois)
+* Fix: No longer generates containers marked as external
+* Fix: Re-enable validation of supported action features (Blizzard)
+* Fix: Match Visual C PDB output to target path (leeonix)
+* Fix: Remove "." and ".." when joining paths (multiple contributors)
+* Fix: Remove trailing newlines from os.outputof() (Tim Wharton)
+* Fix: Improve token handling (multiple contributors)
+
 Since 5.0-alpha2:
 
 * New: CodeLite support

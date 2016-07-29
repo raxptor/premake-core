@@ -14,9 +14,6 @@
 #endif
 
 
-#define VERSION        "HEAD"
-#define COPYRIGHT      "Copyright (C) 2002-2015 Jason Perkins and the Premake Project"
-#define PROJECT_URL    "https://github.com/premake/premake-core/wiki"
 #define ERROR_MESSAGE  "Error: %s\n"
 
 
@@ -49,6 +46,7 @@ static const luaL_Reg path_functions[] = {
 	{ "join", path_join },
 	{ "normalize", path_normalize },
 	{ "translate", path_translate },
+	{ "wildcards", path_wildcards },
 	{ NULL, NULL }
 };
 
@@ -59,6 +57,7 @@ static const luaL_Reg os_functions[] = {
 	{ "_is64bit",               os_is64bit              },
 	{ "isdir",                  os_isdir                },
 	{ "getcwd",                 os_getcwd               },
+	{ "getpass",                os_getpass              },
 	{ "getversion",             os_getversion           },
 	{ "isfile",                 os_isfile               },
 	{ "islink",                 os_islink               },
@@ -75,6 +74,7 @@ static const luaL_Reg os_functions[] = {
 	{ "stat",                   os_stat                 },
 	{ "uuid",                   os_uuid                 },
 	{ "writefile_ifnotequal",   os_writefile_ifnotequal },
+	{ "compile",                os_compile              },
 	{ NULL, NULL }
 };
 
@@ -86,6 +86,29 @@ static const luaL_Reg string_functions[] = {
 	{ NULL, NULL }
 };
 
+static const luaL_Reg buffered_functions[] = {
+	{ "new", buffered_new },
+	{ "write", buffered_write },
+	{ "writeln", buffered_writeln },
+	{ "tostring", buffered_tostring },
+	{ "close", buffered_close },
+	{ NULL, NULL }
+};
+
+#ifdef PREMAKE_CURL
+static const luaL_Reg http_functions[] = {
+	{ "get",  http_get },
+	{ "download",  http_download },
+	{ NULL, NULL }
+};
+#endif
+
+#ifdef PREMAKE_COMPRESSION
+static const luaL_Reg zip_functions[] = {
+	{ "extract",  zip_extract },
+	{ NULL, NULL }
+};
+#endif
 
 /**
  * Initialize the Premake Lua environment.
@@ -99,18 +122,27 @@ int premake_init(lua_State* L)
 	luaL_register(L, "path",     path_functions);
 	luaL_register(L, "os",       os_functions);
 	luaL_register(L, "string",   string_functions);
+	luaL_register(L, "buffered", buffered_functions);
+
+#ifdef PREMAKE_CURL
+	luaL_register(L, "http",     http_functions);
+#endif
+
+#ifdef PREMAKE_COMPRESSION
+	luaL_register(L, "zip",     zip_functions);
+#endif
 
 	/* push the application metadata */
 	lua_pushstring(L, LUA_COPYRIGHT);
 	lua_setglobal(L, "_COPYRIGHT");
 
-	lua_pushstring(L, VERSION);
+	lua_pushstring(L, PREMAKE_VERSION);
 	lua_setglobal(L, "_PREMAKE_VERSION");
 
-	lua_pushstring(L, COPYRIGHT);
+	lua_pushstring(L, PREMAKE_COPYRIGHT);
 	lua_setglobal(L, "_PREMAKE_COPYRIGHT");
 
-	lua_pushstring(L, PROJECT_URL);
+	lua_pushstring(L, PREMAKE_PROJECT_URL);
 	lua_setglobal(L, "_PREMAKE_URL");
 
 	/* set the OS platform variable */
@@ -120,6 +152,7 @@ int premake_init(lua_State* L)
 	/* find the user's home directory */
 	value = getenv("HOME");
 	if (!value) value = getenv("USERPROFILE");
+	if (!value) value = "~";
 	lua_pushstring(L, value);
 	lua_setglobal(L, "_USER_HOME_DIR");
 
@@ -195,9 +228,12 @@ int premake_locate_executable(lua_State* L, const char* argv0)
 	const char* path = NULL;
 
 #if PLATFORM_WINDOWS
-	DWORD len = GetModuleFileName(NULL, buffer, PATH_MAX);
+	DWORD len = GetModuleFileNameA(NULL, buffer, PATH_MAX);
 	if (len > 0)
+	{
+		buffer[len] = 0;
 		path = buffer;
+	}
 #endif
 
 #if PLATFORM_MACOSX
@@ -208,23 +244,32 @@ int premake_locate_executable(lua_State* L, const char* argv0)
 #endif
 
 #if PLATFORM_LINUX
-	int len = readlink("/proc/self/exe", buffer, PATH_MAX);
+	int len = readlink("/proc/self/exe", buffer, PATH_MAX - 1);
 	if (len > 0)
+	{
+		buffer[len] = 0;
 		path = buffer;
+	}
 #endif
 
 #if PLATFORM_BSD
-	int len = readlink("/proc/curproc/file", buffer, PATH_MAX);
+	int len = readlink("/proc/curproc/file", buffer, PATH_MAX - 1);
 	if (len < 0)
-		len = readlink("/proc/curproc/exe", buffer, PATH_MAX);
+		len = readlink("/proc/curproc/exe", buffer, PATH_MAX - 1);
 	if (len > 0)
+	{
+		buffer[len] = 0;
 		path = buffer;
+	}
 #endif
 
 #if PLATFORM_SOLARIS
-	int len = readlink("/proc/self/path/a.out", buffer, PATH_MAX);
+	int len = readlink("/proc/self/path/a.out", buffer, PATH_MAX - 1);
 	if (len > 0)
+	{
+		buffer[len] = 0;
 		path = buffer;
+	}
 #endif
 
 	/* As a fallback, search the PATH with argv[0] */
@@ -273,8 +318,6 @@ int premake_locate_executable(lua_State* L, const char* argv0)
  */
 int premake_test_file(lua_State* L, const char* filename, int searchMask)
 {
-	int i;
-
 	if (searchMask & TEST_LOCAL) {
 		if (do_isfile(filename)) {
 			lua_pushcfunction(L, path_getabsolute);
@@ -296,13 +339,11 @@ int premake_test_file(lua_State* L, const char* filename, int searchMask)
 	#if !defined(PREMAKE_NO_BUILTIN_SCRIPTS)
 	if ((searchMask & TEST_EMBEDDED) != 0) {
 		/* Try to locate a record matching the filename */
-		for (i = 0; builtin_scripts_index[i] != NULL; ++i) {
-			if (strcmp(builtin_scripts_index[i], filename) == 0) {
-				lua_pushstring(L, "$/");
-				lua_pushstring(L, filename);
-				lua_concat(L, 2);
-				return OKAY;
-			}
+		if (premake_find_embedded_script(filename) != NULL) {
+			lua_pushstring(L, "$/");
+			lua_pushstring(L, filename);
+			lua_concat(L, 2);
+			return OKAY;
 		}
 	}
 	#endif
@@ -406,7 +447,7 @@ static int process_arguments(lua_State* L, int argc, const char** argv)
 	for (i = 1; i < argc; ++i)
 	{
 		lua_pushstring(L, argv[i]);
-		lua_rawseti(L, -2, luaL_getn(L, -2) + 1);
+		lua_rawseti(L, -2, lua_objlen(L, -2) + 1);
 
 		/* The /scripts option gets picked up here; used later to find the
 		 * manifest and scripts later if necessary */
@@ -462,6 +503,26 @@ static int run_premake_main(lua_State* L, const char* script)
 
 
 /**
+ * Locate a file in the embedded script index. If found, returns the
+ * contents of the file's script.
+ */
+
+ const buildin_mapping* premake_find_embedded_script(const char* filename)
+ {
+#if !defined(PREMAKE_NO_BUILTIN_SCRIPTS)
+ 	int i;
+	for (i = 0; builtin_scripts[i].name != NULL; ++i) {
+		if (strcmp(builtin_scripts[i].name, filename) == 0) {
+			return builtin_scripts + i;
+		}
+	}
+#endif
+	return NULL;
+ }
+
+
+
+/**
  * Load a script that was previously embedded into the executable. If
  * successful, a function containing the new script chunk is pushed to
  * the stack, just like luaL_loadfile would do had the chunk been loaded
@@ -470,22 +531,11 @@ static int run_premake_main(lua_State* L, const char* script)
 
 int premake_load_embedded_script(lua_State* L, const char* filename)
 {
-	int i;
-	const char* chunk = NULL;
 #if !defined(NDEBUG)
 	static int warned = 0;
 #endif
 
-	/* Try to locate a record matching the filename */
-	#if !defined(PREMAKE_NO_BUILTIN_SCRIPTS)
-	for (i = 0; builtin_scripts_index[i] != NULL; ++i) {
-		if (strcmp(builtin_scripts_index[i], filename) == 0) {
-			chunk = builtin_scripts[i];
-			break;
-		}
-	}
-	#endif
-
+	const buildin_mapping* chunk = premake_find_embedded_script(filename);
 	if (chunk == NULL) {
 		return !OKAY;
 	}
@@ -504,5 +554,5 @@ int premake_load_embedded_script(lua_State* L, const char* filename)
 	lua_concat(L, 2);
 
 	/* Load the chunk */
-	return luaL_loadbuffer(L, chunk, strlen(chunk), filename);
+	return luaL_loadbuffer(L, (const char*)chunk->bytecode, chunk->length, filename);
 }

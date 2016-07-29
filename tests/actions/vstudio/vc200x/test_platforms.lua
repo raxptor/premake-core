@@ -4,8 +4,7 @@
 -- Copyright (c) 2009-2012 Jason Perkins and the Premake project
 --
 
-	T.vstudio_vc200x_platforms = { }
-	local suite = T.vstudio_vc200x_platforms
+	local suite = test.declare("vstudio_vc200x_platforms")
 	local vc200x = premake.vstudio.vc200x
 
 
@@ -13,15 +12,15 @@
 -- Setup
 --
 
-	local sln, prj
+	local wks, prj
 
 	function suite.setup()
-		_ACTION = "vs2008"
-		sln = test.createsolution()
+		premake.action.set("vs2008")
+		wks = test.createWorkspace()
 	end
 
 	local function prepare()
-		prj = premake.solution.getproject(sln, 1)
+		prj = test.getproject(wks, 1)
 		vc200x.platforms(prj)
 	end
 

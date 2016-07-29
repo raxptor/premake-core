@@ -29,11 +29,11 @@
 		"projectProperties",
 		"configurations",
 		"applicationIcon",
-		"assemblyReferences",
+		"references",
 	}
 
 	function cs2005.generate(prj)
-		io.utf8()
+		p.utf8()
 
 		premake.callarray(cs2005, cs2005.elements.project, prj)
 
@@ -182,6 +182,9 @@
 					if #contents > 0 then
 						_p("%s", contents)
 					end
+					if info.action == "EmbeddedResource" and cfg.customtoolnamespace then
+						_p(3,"<CustomToolNamespace>%s</CustomToolNamespace>", cfg.customtoolnamespace)
+					end
 					_p(2,'</%s>', info.action)
 				else
 					_p(2,'<%s Include="%s" />', info.action, fname)
@@ -251,7 +254,7 @@
 --
 
 	function cs2005.debugProps(cfg)
-		if cfg.flags.Symbols then
+		if cfg.symbols == p.ON then
 			_p(2,'<DebugSymbols>true</DebugSymbols>')
 			_p(2,'<DebugType>full</DebugType>')
 		else
@@ -282,12 +285,28 @@
 
 
 --
+-- Write out the references item group.
+--
+
+	cs2005.elements.references = function(prj)
+		return {
+			cs2005.assemblyReferences,
+			cs2005.nuGetReferences,
+		}
+	end
+
+	function cs2005.references(prj)
+		_p(1,'<ItemGroup>')
+		p.callArray(cs2005.elements.references, prj)
+		_p(1,'</ItemGroup>')
+	end
+
+
+--
 -- Write the list of assembly (system, or non-sibling) references.
 --
 
 	function cs2005.assemblyReferences(prj)
-		_p(1,'<ItemGroup>')
-
 		-- C# doesn't support per-configuration links (does it?) so just use
 		-- the settings from the first available config instead
 		local cfg = project.getfirstconfig(prj)
@@ -311,8 +330,44 @@
 				_x(2,'<Reference Include="%s" />', name)
 			end
 		end)
+	end
 
-		_p(1,'</ItemGroup>')
+
+--
+-- Write the list of NuGet references.
+--
+
+	function cs2005.nuGetReferences(prj)
+		if _ACTION >= "vs2010" then
+			for i = 1, #prj.nuget do
+				local package = prj.nuget[i]
+				_x(2, '<Reference Include="%s">', vstudio.nuget2010.packageId(package))
+
+				-- We need to write HintPaths for all supported framework
+				-- versions. The last HintPath will override any previous
+				-- HintPaths (if the condition is met that is).
+
+				for _, frameworkVersion in ipairs(cs2005.identifyFrameworkVersions(prj)) do
+					local assembly = vstudio.path(
+						prj,
+						p.filename(
+							prj.solution,
+							string.format(
+								"packages\\%s\\lib\\%s\\%s.dll",
+								vstudio.nuget2010.packageName(package),
+								cs2005.formatNuGetFrameworkVersion(frameworkVersion),
+								vstudio.nuget2010.packageId(package)
+							)
+						)
+					)
+
+					_x(3, '<HintPath Condition="Exists(\'%s\')">%s</HintPath>', assembly, assembly)
+				end
+
+				_p(3, '<Private>True</Private>')
+				_p(2, '</Reference>')
+			end
+		end
 	end
 
 
@@ -322,7 +377,7 @@
 	function cs2005.projectReferences(prj)
 		_p(1,'<ItemGroup>')
 
-		local deps = project.getdependencies(prj, true)
+		local deps = project.getdependencies(prj, 'linkOnly')
 		if #deps > 0 then
 			for _, dep in ipairs(deps) do
 				local relpath = vstudio.path(prj, vstudio.projectfile(dep))
@@ -362,10 +417,11 @@
 --
 
 	function cs2005.propertyGroup(cfg)
+		local platform = vstudio.projectPlatform(cfg)
 		local arch = cs2005.arch(cfg)
-		_x(1,'<PropertyGroup Condition=" \'$(Configuration)|$(Platform)\' == \'%s|%s\' ">', cfg.buildcfg, arch)
+		p.push('<PropertyGroup Condition=" \'$(Configuration)|$(Platform)\' == \'%s|%s\' ">', platform, arch)
 		if arch ~= "AnyCPU" or _ACTION > "vs2008" then
-			_x(2,'<PlatformTarget>%s</PlatformTarget>', arch)
+			p.x('<PlatformTarget>%s</PlatformTarget>', arch)
 		end
 	end
 
@@ -395,6 +451,41 @@
 
 	function cs2005.condition(cfg)
 		return string.format('Condition="\'$(Configuration)|$(Platform)\'==\'%s\'"', premake.esc(vstudio.projectConfig(cfg)))
+	end
+
+
+--
+-- Build and return a list of all .NET Framework versions up to and including
+-- the project's framework version.
+--
+
+	function cs2005.identifyFrameworkVersions(prj)
+		local frameworks = {}
+
+		local cfg = p.project.getfirstconfig(prj)
+		local action = premake.action.current()
+		local targetFramework = cfg.dotnetframework or action.vstudio.targetFramework
+
+		for _, frameworkVersion in ipairs(vstudio.frameworkVersions) do
+			if frameworkVersion == targetFramework then
+				break
+			end
+
+			table.insert(frameworks, frameworkVersion)
+		end
+
+		table.insert(frameworks, targetFramework)
+
+		return frameworks
+	end
+
+
+--
+-- When given a .NET Framework version, returns it formatted for NuGet.
+--
+
+	function cs2005.formatNuGetFrameworkVersion(framework)
+		return "net" .. framework:gsub("%.", "")
 	end
 
 ---------------------------------------------------------------------------
@@ -476,7 +567,7 @@
 
 	function cs2005.targetFrameworkVersion(cfg)
 		local action = premake.action.current()
-		local framework = cfg.framework or action.vstudio.targetFramework
+		local framework = cfg.dotnetframework or action.vstudio.targetFramework
 		if framework then
 			_p(2,'<TargetFrameworkVersion>v%s</TargetFrameworkVersion>', framework)
 		end
